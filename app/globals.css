@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-slate-900 antialiased;
+}
+
+/*
+ * Admin dashboard theme variables. Deliberately scoped via a
+ * [data-admin-theme] attribute on a wrapper inside the admin layout —
+ * never on <html>/<body> — so this can never affect the public
+ * marketing site or public business profiles, which have their own
+ * separate styling (brand palette / per-business theme color).
+ */
+:root {
+  --admin-bg: #f5f6f8;
+  --admin-sidebar: #ffffff;
+  --admin-card: #ffffff;
+  --admin-border: #e5e7eb;
+  --admin-text: #17181c;
+  --admin-text-secondary: #6b7280;
+  --admin-accent: #b8f500;
+  --admin-accent-text: #111827;
+}
+
+[data-admin-theme="dark"] {
+  --admin-bg: #17181c;
+  --admin-sidebar: #1e2025;
+  --admin-card: #24262c;
+  --admin-border: #34363d;
+  --admin-text: #f1f2f4;
+  --admin-text-secondary: #9b9ea7;
+  --admin-accent: #b8f500;
+  --admin-accent-text: #111827;
+}

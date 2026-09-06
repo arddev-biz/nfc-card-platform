@@ -1,0 +1,310 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(SUPER_ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizations Organization[] @relation("OrgOwner")
+  sessions      Session[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  BUSINESS_OWNER // reserved for future SaaS phase — not used in V1
+}
+
+// ─────────────────────────────────────────────
+// AUTH SESSIONS (Phase 2)
+// ─────────────────────────────────────────────
+
+// Server-side session record backing the httpOnly session cookie.
+// Only a hash of the session token is stored — the raw token lives only
+// in the browser's cookie — so a database leak alone does not yield a
+// usable session, mirroring how passwordHash is handled.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// TENANT / BUSINESS
+// ─────────────────────────────────────────────
+
+model Organization {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  businessType String? // e.g. "Restaurant", "Salon" — free-text classification for the admin list/filters
+  ownerUserId  String?
+  owner        User?     @relation("OrgOwner", fields: [ownerUserId], references: [id])
+  status       OrgStatus @default(ACTIVE)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile           BusinessProfile?
+  cards             NFCCard[]
+  subscriptions     Subscription[]
+  convertedFromLead Lead?
+  modules           BusinessModule[]
+  menu              Menu?
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+model BusinessProfile {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  displayName   String
+  bio           String?
+  logoUrl       String?
+  coverImageUrl String?
+  themeColor    String?
+  phone         String?
+  whatsapp      String?
+  email         String?
+  website       String?
+  address       String?
+  googleMapsUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links ProfileLink[]
+}
+
+model ProfileLink {
+  id                 String          @id @default(cuid())
+  businessProfileId  String
+  businessProfile    BusinessProfile @relation(fields: [businessProfileId], references: [id])
+
+  type      LinkType
+  label     String?
+  url       String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessProfileId, sortOrder])
+}
+
+enum LinkType {
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  WHATSAPP
+  PHONE
+  EMAIL
+  WEBSITE
+  GOOGLE_MAPS
+  GOOGLE_REVIEWS
+  BOOKING
+  CUSTOM
+}
+
+// ─────────────────────────────────────────────
+// NFC CARDS
+// ─────────────────────────────────────────────
+
+model NFCCard {
+  id             String        @id @default(cuid())
+  token          String        @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  status      CardStatus @default(UNASSIGNED)
+  activatedAt DateTime?
+  expiresAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+}
+
+enum CardStatus {
+  UNASSIGNED
+  ACTIVE
+  SUSPENDED
+  REPLACED
+}
+
+// ─────────────────────────────────────────────
+// SUBSCRIPTION (tracking only — no billing in V1)
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  plan      String    @default("standard")
+  status    SubStatus @default(ACTIVE)
+  startDate DateTime  @default(now())
+  endDate   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SubStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// LEADS / INQUIRIES (landing page contact form)
+// ─────────────────────────────────────────────
+
+model Lead {
+  id String @id @default(cuid())
+
+  name         String
+  businessName String
+  phone        String
+  email        String?
+  businessType String?
+  message      String?
+
+  status LeadStatus @default(NEW)
+
+  convertedOrganizationId String?       @unique
+  convertedOrganization   Organization? @relation(fields: [convertedOrganizationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  CLOSED
+}
+
+// ─────────────────────────────────────────────
+// BUSINESS MODULES (Phase 6 foundation)
+// ─────────────────────────────────────────────
+
+// One row per (organization, module type). Deliberately a dedicated
+// model rather than a boolean column per module on Organization — adding
+// a future module (BOOKING, SERVICES, ...) is a new ModuleType enum
+// value, not a schema/migration change to Organization itself.
+model BusinessModule {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type      ModuleType
+  isEnabled Boolean    @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, type])
+}
+
+enum ModuleType {
+  MENU
+}
+
+// ─────────────────────────────────────────────
+// DIGITAL MENU (first module)
+// ─────────────────────────────────────────────
+
+// One primary menu per organization for V1 (organizationId is @unique).
+// Kept as its own model rather than a single JSON blob or fields on
+// Organization so multi-menu support later is a constraint relaxation,
+// not a redesign.
+model Menu {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String  @default("Menu")
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories MenuCategory[]
+}
+
+model MenuCategory {
+  id     String @id @default(cuid())
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items MenuItem[]
+
+  @@index([menuId, sortOrder])
+}
+
+model MenuItem {
+  id         String       @id @default(cuid())
+  categoryId String
+  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  // Stored in the currency's smallest unit (e.g. cents for EUR) to avoid
+  // floating-point money bugs. ALL is treated as a zero-decimal currency
+  // (like JPY), so its "minor unit" is just the whole amount. See
+  // lib/currency.ts for the conversion helpers used at every boundary.
+  priceMinor Int
+  currency   MenuCurrency
+  sortOrder  Int          @default(0)
+  isActive   Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, sortOrder])
+}
+
+enum MenuCurrency {
+  ALL
+  EUR
+}
