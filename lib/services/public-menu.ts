@@ -56,7 +56,19 @@ export async function getPublicMenu(slug: string) {
     where: { slug, status: "ACTIVE" },
     select: {
       name: true,
-      profile: { select: { displayName: true, themeColor: true } },
+      profile: {
+        select: {
+          displayName: true,
+          themeColor: true,
+          logoUrl: true,
+          coverImageUrl: true,
+          backgroundType: true,
+          backgroundColor: true,
+          backgroundGradient: true,
+          backgroundImageUrl: true,
+          backgroundMode: true,
+        },
+      },
       modules: {
         where: { type: "MENU" },
         select: { isEnabled: true },
@@ -106,6 +118,15 @@ export async function getPublicMenu(slug: string) {
   return {
     businessName: organization.profile.displayName || organization.name,
     themeColor: organization.profile.themeColor,
+    logoUrl: organization.profile.logoUrl,
+    coverImageUrl: organization.profile.coverImageUrl,
+    background: {
+      backgroundType: organization.profile.backgroundType,
+      backgroundColor: organization.profile.backgroundColor,
+      backgroundGradient: organization.profile.backgroundGradient,
+      backgroundImageUrl: organization.profile.backgroundImageUrl,
+      backgroundMode: organization.profile.backgroundMode,
+    },
     menuName: organization.menu.name,
     menuDescription: organization.menu.description,
     categories: categoriesWithItems,
