@@ -50,6 +50,27 @@ export const businessInputSchema = z.object({
       .regex(HEX_COLOR_PATTERN, "Enter a valid hex color, e.g. #4F46E5.")
       .optional()
   ),
+
+  // Background customization (Phase 11 Step 2). backgroundImageUrl is
+  // deliberately not here — it's managed via the existing image-upload
+  // endpoint, same as logoUrl/coverImageUrl.
+  backgroundType: z.preprocess(
+    emptyToUndefined,
+    z.enum(["SOLID", "GRADIENT", "IMAGE"]).optional()
+  ),
+  backgroundColor: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .trim()
+      .regex(HEX_COLOR_PATTERN, "Enter a valid hex color, e.g. #4F46E5.")
+      .optional()
+  ),
+  backgroundGradient: z.preprocess(
+    emptyToUndefined,
+    z.enum(["INDIGO", "PURPLE", "BLUE", "SUNSET", "EMERALD", "ROSE", "DARK"]).optional()
+  ),
+  backgroundMode: z.preprocess(emptyToUndefined, z.enum(["LIGHT", "DARK"]).optional()),
 });
 
 export type BusinessInput = z.infer<typeof businessInputSchema>;

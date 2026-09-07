@@ -18,6 +18,12 @@ async function getOwnedProfile(organizationId: string) {
   return profile;
 }
 
+const PROFILE_FIELD_BY_KIND = {
+  logo: "logoUrl",
+  cover: "coverImageUrl",
+  background: "backgroundImageUrl",
+} as const;
+
 export async function uploadBusinessImage(
   organizationId: string,
   kind: ImageKind,
@@ -31,11 +37,12 @@ export async function uploadBusinessImage(
   const pathname = `businesses/${organizationId}/${kind}.${ext}`;
   const url = await uploadImage(buffer, pathname, mime);
 
-  const previousUrl = kind === "logo" ? profile.logoUrl : profile.coverImageUrl;
+  const field = PROFILE_FIELD_BY_KIND[kind];
+  const previousUrl = profile[field];
 
   await db.businessProfile.update({
     where: { organizationId },
-    data: kind === "logo" ? { logoUrl: url } : { coverImageUrl: url },
+    data: { [field]: url },
   });
 
   // Upload + DB update already succeeded by this point. Cleaning up the
@@ -49,11 +56,12 @@ export async function uploadBusinessImage(
 
 export async function removeBusinessImage(organizationId: string, kind: ImageKind): Promise<void> {
   const profile = await getOwnedProfile(organizationId);
-  const previousUrl = kind === "logo" ? profile.logoUrl : profile.coverImageUrl;
+  const field = PROFILE_FIELD_BY_KIND[kind];
+  const previousUrl = profile[field];
 
   await db.businessProfile.update({
     where: { organizationId },
-    data: kind === "logo" ? { logoUrl: null } : { coverImageUrl: null },
+    data: { [field]: null },
   });
 
   if (previousUrl) {

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { getPublicBusinessProfile } from "@/lib/services/public-profile";
 import { isMenuAvailableForSlug } from "@/lib/services/public-menu";
 import { buildLinkHref, isRenderableLinkValue, opensInNewTab } from "@/lib/linkTypes";
+import { resolveBackground } from "@/lib/background";
 import { LinkIcon } from "@/components/profile/LinkIcon";
 
 export const runtime = "nodejs";
@@ -41,6 +42,20 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
   const { profile } = business;
   const themeColor = profile.themeColor || DEFAULT_THEME_COLOR;
   const menuAvailable = await isMenuAvailableForSlug(params.businessSlug);
+  const background = resolveBackground(profile);
+  const isDark = background.mode === "dark";
+
+  // Computed once, used throughout every card/section below, so the
+  // same profile automatically reads correctly whether its background
+  // is the plain legacy default or a custom dark image/gradient.
+  const cardClass = isDark
+    ? "bg-white/10 backdrop-blur-sm ring-1 ring-white/10"
+    : "bg-white ring-1 ring-slate-900/5";
+  const primaryTextClass = isDark ? "text-white" : "text-slate-900";
+  const secondaryTextClass = isDark ? "text-white/70" : "text-slate-600";
+  const mutedTextClass = isDark ? "text-white/40" : "text-slate-400";
+  const dividerClass = isDark ? "divide-white/10" : "divide-slate-100";
+  const badgeTintStyle = { backgroundColor: `${themeColor}${isDark ? "33" : "1A"}`, color: themeColor };
 
   const renderableLinks = profile.links.filter((link) => isRenderableLinkValue(link.type, link.url));
   const linksByType = new Map(renderableLinks.map((link) => [link.type, link]));
@@ -104,8 +119,14 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
     menuAvailable;
 
   return (
-    <main className="min-h-screen bg-[#F7F7F8]">
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col pb-12">
+    <main className="relative min-h-screen" style={background.style}>
+      {background.hasImage && (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)" }}
+        />
+      )}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col pb-12">
         {/* 1. COVER / HERO */}
         <div className="relative">
           <div
@@ -129,7 +150,7 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
 
           <header className={`px-5 text-center ${profile.logoUrl ? "-mt-12" : "mt-5"}`}>
             {profile.logoUrl && (
-              <div className="relative mx-auto mb-4 h-24 w-24 overflow-hidden rounded-full border-4 border-[#F7F7F8] bg-white shadow-lg">
+              <div className="relative mx-auto mb-4 h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
                 <Image
                   src={profile.logoUrl}
                   alt={profile.displayName}
@@ -139,19 +160,19 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
                 />
               </div>
             )}
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className={`text-2xl font-bold tracking-tight ${primaryTextClass}`}>
               {profile.displayName || business.name}
             </h1>
             {business.businessType && (
               <span
                 className="mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold"
-                style={{ backgroundColor: `${themeColor}1A`, color: themeColor }}
+                style={badgeTintStyle}
               >
                 {business.businessType}
               </span>
             )}
             {profile.bio && (
-              <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
+              <p className={`mx-auto mt-3 max-w-sm text-sm leading-relaxed ${secondaryTextClass}`}>
                 {profile.bio}
               </p>
             )}
@@ -167,7 +188,7 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
                   key={action.key}
                   href={action.href}
                   {...(opensInNewTab(action.type) ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className="flex flex-col items-center gap-2 rounded-2xl bg-white px-3 py-4 text-center shadow-sm ring-1 ring-slate-900/5 transition-transform active:scale-[0.97]"
+                  className={`flex flex-col items-center gap-2 rounded-2xl px-3 py-4 text-center shadow-sm transition-transform active:scale-[0.97] ${cardClass}`}
                 >
                   <span
                     className="flex h-11 w-11 items-center justify-center rounded-full text-white"
@@ -175,7 +196,7 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
                   >
                     <LinkIcon type={action.type} className="h-5 w-5" />
                   </span>
-                  <span className="text-xs font-semibold text-slate-700">{action.label}</span>
+                  <span className={`text-xs font-semibold ${primaryTextClass}`}>{action.label}</span>
                 </a>
               ))}
             </div>
@@ -185,7 +206,7 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
           {menuAvailable && (
             <NextLink
               href={`/${params.businessSlug}/menu`}
-              className="mt-4 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-slate-900/5 transition-transform active:scale-[0.98]"
+              className={`mt-4 flex items-center justify-between rounded-2xl px-5 py-4 shadow-sm transition-transform active:scale-[0.98] ${cardClass}`}
             >
               <span className="flex items-center gap-3">
                 <span
@@ -195,11 +216,11 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
                   <MenuGlyph className="h-5 w-5" />
                 </span>
                 <span className="text-left">
-                  <span className="block text-sm font-semibold text-slate-900">View Menu</span>
-                  <span className="block text-xs text-slate-500">See our full menu</span>
+                  <span className={`block text-sm font-semibold ${primaryTextClass}`}>View Menu</span>
+                  <span className={`block text-xs ${secondaryTextClass}`}>See our full menu</span>
                 </span>
               </span>
-              <span className="text-slate-300">&rarr;</span>
+              <span className={mutedTextClass}>&rarr;</span>
             </NextLink>
           )}
 
@@ -215,15 +236,15 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
                       <a
                         href={href}
                         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                        className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm ring-1 ring-slate-900/5 transition-transform active:scale-[0.98]"
+                        className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 shadow-sm transition-transform active:scale-[0.98] ${cardClass}`}
                       >
                         <span
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                          style={{ backgroundColor: `${themeColor}1A`, color: themeColor }}
+                          style={badgeTintStyle}
                         >
                           <LinkIcon type={link.type} className="h-4 w-4" />
                         </span>
-                        <span className="truncate text-sm font-semibold text-slate-800">{link.label}</span>
+                        <span className={`truncate text-sm font-semibold ${primaryTextClass}`}>{link.label}</span>
                       </a>
                     </li>
                   );
@@ -234,17 +255,20 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
 
           {/* 4. BUSINESS INFORMATION */}
           {businessInfoRows.length > 0 && (
-            <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
-              <ul className="divide-y divide-slate-100">
+            <div className={`mt-6 rounded-2xl p-4 shadow-sm ${cardClass}`}>
+              <ul className={`divide-y ${dividerClass}`}>
                 {businessInfoRows.map((row) =>
                   row.href ? (
                     <li key={row.key}>
-                      <a href={row.href} className="block py-2.5 text-sm text-slate-600 hover:text-slate-900">
+                      <a
+                        href={row.href}
+                        className={`block py-2.5 text-sm transition-opacity hover:opacity-70 ${secondaryTextClass}`}
+                      >
                         {row.label}
                       </a>
                     </li>
                   ) : (
-                    <li key={row.key} className="py-2.5 text-sm text-slate-600">
+                    <li key={row.key} className={`py-2.5 text-sm ${secondaryTextClass}`}>
                       {row.label}
                     </li>
                   )
@@ -254,13 +278,13 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
           )}
 
           {!hasAnyContent && (
-            <p className="mt-10 text-center text-sm text-slate-400">
+            <p className={`mt-10 text-center text-sm ${mutedTextClass}`}>
               This business hasn&apos;t added any links yet.
             </p>
           )}
 
           {/* 7. FOOTER */}
-          <footer className="pt-12 text-center text-xs text-slate-400">
+          <footer className={`pt-12 text-center text-xs ${mutedTextClass}`}>
             {profile.displayName || business.name}
           </footer>
         </div>

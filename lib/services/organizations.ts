@@ -169,6 +169,10 @@ export async function createOrganization(input: BusinessInput) {
           address: input.address,
           googleMapsUrl: input.googleMapsUrl,
           themeColor: input.themeColor,
+          backgroundType: input.backgroundType,
+          backgroundColor: input.backgroundColor,
+          backgroundGradient: input.backgroundGradient,
+          backgroundMode: input.backgroundMode,
         },
       });
 
@@ -235,6 +239,10 @@ export async function updateOrganization(id: string, input: BusinessInput) {
           address: input.address,
           googleMapsUrl: input.googleMapsUrl,
           themeColor: input.themeColor,
+          backgroundType: input.backgroundType,
+          backgroundColor: input.backgroundColor,
+          backgroundGradient: input.backgroundGradient,
+          backgroundMode: input.backgroundMode,
         },
       });
 

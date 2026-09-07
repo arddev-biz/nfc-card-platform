@@ -11,7 +11,7 @@ import type { ImageKind } from "@/lib/validation/images";
 export const runtime = "nodejs";
 
 function parseKind(value: string): ImageKind | null {
-  return value === "logo" || value === "cover" ? value : null;
+  return value === "logo" || value === "cover" || value === "background" ? value : null;
 }
 
 export async function POST(

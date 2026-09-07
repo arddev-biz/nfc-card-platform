@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { GRADIENT_PRESETS, GRADIENT_PRESET_ORDER } from "@/lib/background";
+import { ImageSlot } from "@/components/admin/BusinessImagesManager";
 
 export interface BusinessFormValues {
   businessName: string;
@@ -19,6 +21,10 @@ export interface BusinessFormValues {
   googleMapsUrl: string;
   displayName: string;
   themeColor: string;
+  backgroundType: string;
+  backgroundColor: string;
+  backgroundGradient: string;
+  backgroundMode: string;
 }
 
 const emptyValues: BusinessFormValues = {
@@ -34,6 +40,10 @@ const emptyValues: BusinessFormValues = {
   googleMapsUrl: "",
   displayName: "",
   themeColor: "",
+  backgroundType: "",
+  backgroundColor: "",
+  backgroundGradient: "",
+  backgroundMode: "",
 };
 
 type FieldErrors = Partial<Record<keyof BusinessFormValues, string[]>>;
@@ -42,9 +52,15 @@ interface BusinessFormProps {
   mode: "create" | "edit";
   organizationId?: string;
   initialValues?: Partial<BusinessFormValues>;
+  backgroundImageUrl?: string | null;
 }
 
-export function BusinessForm({ mode, organizationId, initialValues }: BusinessFormProps) {
+export function BusinessForm({
+  mode,
+  organizationId,
+  initialValues,
+  backgroundImageUrl = null,
+}: BusinessFormProps) {
   const router = useRouter();
   const [values, setValues] = useState<BusinessFormValues>({
     ...emptyValues,
@@ -54,6 +70,57 @@ export function BusinessForm({ mode, organizationId, initialValues }: BusinessFo
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Background image is uploaded immediately (same as logo/cover),
+  // independent of this form's Save button — mirrors
+  // BusinessImagesManager's own upload/remove handling exactly, reusing
+  // the same API endpoint and the same ImageSlot UI.
+  const [isBackgroundImageBusy, setIsBackgroundImageBusy] = useState(false);
+  const [backgroundImageError, setBackgroundImageError] = useState<string | null>(null);
+
+  async function handleBackgroundImageUpload(file: File) {
+    if (!organizationId) return;
+    setIsBackgroundImageBusy(true);
+    setBackgroundImageError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`/api/admin/businesses/${organizationId}/images/background`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setBackgroundImageError(data.error ?? "Something went wrong uploading the image.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setBackgroundImageError("Something went wrong. Please try again.");
+    } finally {
+      setIsBackgroundImageBusy(false);
+    }
+  }
+
+  async function handleBackgroundImageRemove() {
+    if (!organizationId) return;
+    if (!window.confirm("Remove the background image? This can't be undone.")) return;
+    setIsBackgroundImageBusy(true);
+    setBackgroundImageError(null);
+    try {
+      const response = await fetch(`/api/admin/businesses/${organizationId}/images/background`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setBackgroundImageError(data.error ?? "Something went wrong removing the image.");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setIsBackgroundImageBusy(false);
+    }
+  }
 
   function update<K extends keyof BusinessFormValues>(key: K, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -305,6 +372,126 @@ export function BusinessForm({ mode, organizationId, initialValues }: BusinessFo
         <p className="text-xs text-[var(--admin-text-secondary)]">
           Logo and cover image upload will be added in a later phase.
         </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">
+          Background
+        </h2>
+        <p className="text-xs text-[var(--admin-text-secondary)]">
+          Controls the public profile&apos;s page background. Leave as &ldquo;Default&rdquo; to keep
+          the current plain background.
+        </p>
+
+        <div>
+          <label
+            htmlFor="backgroundType"
+            className="block text-sm font-medium text-[var(--admin-text)]"
+          >
+            Background type
+          </label>
+          <select
+            id="backgroundType"
+            value={values.backgroundType}
+            onChange={(e) => update("backgroundType", e.target.value)}
+            className="mt-1 block w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-card)] px-3 py-2 text-sm text-[var(--admin-text)] shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+          >
+            <option value="">Default (plain)</option>
+            <option value="SOLID">Solid color</option>
+            <option value="GRADIENT">Gradient</option>
+            <option value="IMAGE">Image</option>
+          </select>
+        </div>
+
+        {values.backgroundType === "SOLID" && (
+          <div>
+            <label
+              htmlFor="backgroundColor"
+              className="block text-sm font-medium text-[var(--admin-text)]"
+            >
+              Background color
+            </label>
+            <Input
+              id="backgroundColor"
+              placeholder="#F7F7F8"
+              value={values.backgroundColor}
+              onChange={(e) => update("backgroundColor", e.target.value)}
+            />
+            {fieldError("backgroundColor") && (
+              <p className="mt-1 text-sm text-red-600">{fieldError("backgroundColor")}</p>
+            )}
+          </div>
+        )}
+
+        {values.backgroundType === "GRADIENT" && (
+          <div>
+            <p className="block text-sm font-medium text-[var(--admin-text)]">Gradient</p>
+            <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
+              {GRADIENT_PRESET_ORDER.map((preset) => {
+                const isSelected = values.backgroundGradient === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    title={GRADIENT_PRESETS[preset].label}
+                    onClick={() => update("backgroundGradient", preset)}
+                    className={`h-12 rounded-lg ring-2 transition-all ${
+                      isSelected ? "ring-slate-900" : "ring-transparent hover:ring-slate-300"
+                    }`}
+                    style={{ background: GRADIENT_PRESETS[preset].css }}
+                  />
+                );
+              })}
+            </div>
+            {fieldError("backgroundGradient") && (
+              <p className="mt-1 text-sm text-red-600">{fieldError("backgroundGradient")}</p>
+            )}
+          </div>
+        )}
+
+        {values.backgroundType === "IMAGE" && (
+          <div>
+            {organizationId ? (
+              <ImageSlot
+                label="Background image"
+                hint="Used on the public profile. JPEG, PNG, or WebP, up to 5MB."
+                url={backgroundImageUrl}
+                isBusy={isBackgroundImageBusy}
+                error={backgroundImageError}
+                onUpload={handleBackgroundImageUpload}
+                onRemove={handleBackgroundImageRemove}
+                previewClassName="h-16 w-28 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <p className="text-xs text-[var(--admin-text-secondary)]">
+                Save this business first, then upload a background image here.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div>
+          <label
+            htmlFor="backgroundMode"
+            className="block text-sm font-medium text-[var(--admin-text)]"
+          >
+            Appearance
+          </label>
+          <select
+            id="backgroundMode"
+            value={values.backgroundMode}
+            onChange={(e) => update("backgroundMode", e.target.value)}
+            className="mt-1 block w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-card)] px-3 py-2 text-sm text-[var(--admin-text)] shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+          >
+            <option value="">Light (default)</option>
+            <option value="LIGHT">Light</option>
+            <option value="DARK">Dark</option>
+          </select>
+          <p className="mt-1 text-xs text-[var(--admin-text-secondary)]">
+            Dark switches card and text colors on the public profile for readability against a
+            dark background.
+          </p>
+        </div>
       </section>
 
       <div className="flex items-center gap-3 border-t border-[var(--admin-border)] pt-6">

@@ -49,6 +49,10 @@ export default async function EditBusinessPage({
     googleMapsUrl: profile.googleMapsUrl ?? "",
     displayName: profile.displayName,
     themeColor: profile.themeColor ?? "",
+    backgroundType: profile.backgroundType ?? "",
+    backgroundColor: profile.backgroundColor ?? "",
+    backgroundGradient: profile.backgroundGradient ?? "",
+    backgroundMode: profile.backgroundMode ?? "",
   };
 
   return (
@@ -156,7 +160,12 @@ export default async function EditBusinessPage({
       </div>
 
       <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
-        <BusinessForm mode="edit" organizationId={organization.id} initialValues={initialValues} />
+        <BusinessForm
+          mode="edit"
+          organizationId={organization.id}
+          initialValues={initialValues}
+          backgroundImageUrl={profile.backgroundImageUrl}
+        />
       </div>
     </div>
   );

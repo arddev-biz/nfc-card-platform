@@ -10,7 +10,7 @@ interface BusinessImagesManagerProps {
   coverImageUrl: string | null;
 }
 
-function ImageSlot({
+export function ImageSlot({
   label,
   hint,
   url,
@@ -94,9 +94,13 @@ export function BusinessImagesManager({
   const [logoError, setLogoError] = useState<string | null>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
 
+  function errorSetterFor(kind: "logo" | "cover") {
+    return kind === "logo" ? setLogoError : setCoverError;
+  }
+
   async function handleUpload(kind: "logo" | "cover", file: File) {
     setBusyKind(kind);
-    const setError = kind === "logo" ? setLogoError : setCoverError;
+    const setError = errorSetterFor(kind);
     setError(null);
 
     try {
@@ -126,7 +130,7 @@ export function BusinessImagesManager({
     if (!window.confirm(`Remove the ${kind}? This can't be undone.`)) return;
 
     setBusyKind(kind);
-    const setError = kind === "logo" ? setLogoError : setCoverError;
+    const setError = errorSetterFor(kind);
     setError(null);
 
     try {

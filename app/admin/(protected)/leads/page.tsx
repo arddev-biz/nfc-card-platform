@@ -74,7 +74,7 @@ export default async function LeadsListPage({
         <div className="mt-8 rounded-xl border border-dashed border-[var(--admin-border)] bg-[var(--admin-card)] p-12 text-center">
           <p className="text-[var(--admin-text)]">No leads yet.</p>
           <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">
-            Submissions from the landing pages contact/order form will appear here.
+            Submissions from the landing page&apos;s contact/order form will appear here.
           </p>
         </div>
       ) : (

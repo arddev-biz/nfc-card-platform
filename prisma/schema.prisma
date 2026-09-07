@@ -94,6 +94,16 @@ model BusinessProfile {
   address       String?
   googleMapsUrl String?
 
+  // Background customization (Phase 11 Step 2). All nullable, no
+  // defaults: every existing profile gets NULL here after migration,
+  // which the public profile's rendering logic treats identically to
+  // "not configured" — i.e. today's plain white background, unchanged.
+  backgroundType     BackgroundType?
+  backgroundColor    String?
+  backgroundGradient BackgroundGradientPreset?
+  backgroundImageUrl String?
+  backgroundMode     BackgroundMode?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -115,6 +125,27 @@ model ProfileLink {
   updatedAt DateTime @updatedAt
 
   @@index([businessProfileId, sortOrder])
+}
+
+enum BackgroundType {
+  SOLID
+  GRADIENT
+  IMAGE
+}
+
+enum BackgroundGradientPreset {
+  INDIGO
+  PURPLE
+  BLUE
+  SUNSET
+  EMERALD
+  ROSE
+  DARK
+}
+
+enum BackgroundMode {
+  LIGHT
+  DARK
 }
 
 enum LinkType {
