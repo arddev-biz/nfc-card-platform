@@ -56,7 +56,7 @@ import { BsList } from "@react-icons/all-files/bs/BsList";
 import { BsBoxArrowUpRight } from "@react-icons/all-files/bs/BsBoxArrowUpRight";
 import { BsPerson } from "@react-icons/all-files/bs/BsPerson";
 import { BsStar } from "@react-icons/all-files/bs/BsStar";
-import { BsLink45Deg } from "@react-icons/all-files/bs/BsLink45deg";
+import { BsLink45Deg } from "@react-icons/all-files/bs/BsLink45Deg";
 import { MdPhone } from "@react-icons/all-files/md/MdPhone";
 import { MdEmail } from "@react-icons/all-files/md/MdEmail";
 import { MdLocationOn } from "@react-icons/all-files/md/MdLocationOn";
