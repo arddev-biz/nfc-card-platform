@@ -94,15 +94,29 @@ model BusinessProfile {
   address       String?
   googleMapsUrl String?
 
-  // Background customization (Phase 11 Step 2). All nullable, no
-  // defaults: every existing profile gets NULL here after migration,
-  // which the public profile's rendering logic treats identically to
-  // "not configured" — i.e. today's plain white background, unchanged.
-  backgroundType     BackgroundType?
+  // These are text columns in the live database. Values written by the
+  // application are still restricted by validation before persistence.
+  backgroundType     String @default("SOLID")
   backgroundColor    String?
-  backgroundGradient BackgroundGradientPreset?
+  backgroundGradient String?
   backgroundImageUrl String?
-  backgroundMode     BackgroundMode?
+  backgroundMode     String @default("LIGHT")
+
+  showCreateProfileButton Boolean @default(true)
+
+  // Legacy rendering remains authoritative until explicit conversion.
+  designConfig         Json?
+  isVerified           Boolean   @default(false)
+  verificationColor    String    @default("#2563EB")
+  verificationTooltip  String?
+  builderVersion       Int       @default(1)
+  theme                String    @default("CLASSIC")
+  layoutRevision       Int       @default(0)
+  v2ConvertedAt        DateTime?
+  v2ConversionSnapshot Json?
+
+  sections ProfileSection[]
+  assets   ProfileAsset[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,36 +141,24 @@ model BusinessProfile {
 // PROFILE BUILDER — block layout, visibility, and per-block config
 // ─────────────────────────────────────────────
 
-// System blocks (BIO, CONTACT, LOCATION, REVIEWS, MENU, LINKS,
-// BUSINESS_INFO) remain content-backed by existing tables/fields — this
-// row only overrides their order/visibility/optional presentation
-// config, exactly as before. HEADING/TEXT/DIVIDER are new, genuinely
-// repeatable blocks with no other home for their content, so `config`
-// (validated per-type in lib/validation/profile-blocks.ts, never
-// trusted raw) is where their actual text lives.
-//
-// The unique constraint was deliberately relaxed to a plain index: a
-// business may now have zero, one, or many rows for a given key (e.g.
-// multiple TEXT blocks), whereas system/singleton keys are still kept
-// to one row each by application logic (see profile-blocks.ts), not a
-// DB constraint. This is an additive, non-destructive change — no
-// existing row violates it, since every existing row already satisfied
-// the stricter constraint being relaxed.
+// The seven system blocks remain content-backed by existing tables and
+// fields. Each profile has at most one row per block key; `config` stores
+// only validated presentation options for supported system blocks.
 model ProfileBlockLayout {
   id                 String          @id @default(cuid())
   businessProfileId  String
-  businessProfile    BusinessProfile @relation(fields: [businessProfileId], references: [id])
+  businessProfile    BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
 
   blockKey  ProfileBlockKey
-  position  Int     @default(0)
+  position  Int
   isVisible Boolean @default(true)
   config    Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([businessProfileId, blockKey])
-  @@index([businessProfileId])
+  @@unique([businessProfileId, blockKey])
+  @@index([businessProfileId, position])
 }
 
 enum ProfileBlockKey {
@@ -167,9 +169,6 @@ enum ProfileBlockKey {
   MENU
   LINKS
   BUSINESS_INFO
-  HEADING
-  TEXT
-  DIVIDER
 }
 
 model ProfileLink {
@@ -183,10 +182,28 @@ model ProfileLink {
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
 
+  thumbnailUrl   String?
+  collectionTitle String?
+  layout          String  @default("STACK")
+
+  // V2-only presentation. Legacy rendering ignores these fields.
+  width             String  @default("FULL")
+  iconMode          String  @default("DEFAULT")
+  v2IsVisible       Boolean @default(false)
+  customIconAssetId String?
+  socialSectionId   String?
+  socialNetwork     String?
+  customIconAsset   ProfileAsset? @relation("LinkIcon", fields: [customIconAssetId, businessProfileId], references: [id, businessProfileId], onDelete: Restrict, onUpdate: NoAction)
+  socialSection     ProfileSection? @relation("SocialLinks", fields: [socialSectionId, businessProfileId], references: [id, businessProfileId], onDelete: Restrict, onUpdate: NoAction)
+  referencedByItems ProfileSectionItem[] @relation("ItemLink")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([id, businessProfileId])
   @@index([businessProfileId, sortOrder])
+  @@index([customIconAssetId, businessProfileId])
+  @@index([socialSectionId, businessProfileId])
 }
 
 enum BackgroundType {
@@ -400,4 +417,84 @@ model MenuItem {
 enum MenuCurrency {
   ALL
   EUR
+}
+
+// V2 is independent of the legacy seven-singleton ProfileBlockLayout.
+// SQL CHECK constraints supplement Prisma (20260917120000_profile_builder_v2).
+model ProfileSection {
+  id                String @id @default(cuid())
+  businessProfileId String
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  kind              String
+  singletonKey      String?
+  internalName      String
+  visibleTitle      String?
+  position          Int
+  isVisible         Boolean @default(false)
+  configVersion     Int @default(1)
+  config            Json @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  items       ProfileSectionItem[]
+  socialLinks ProfileLink[] @relation("SocialLinks")
+
+  @@unique([id, businessProfileId])
+  @@unique([businessProfileId, singletonKey])
+  @@index([businessProfileId, position])
+}
+
+model ProfileSectionItem {
+  id                      String @id @default(cuid())
+  businessProfileId       String
+  sectionId               String
+  section                 ProfileSection @relation(fields: [sectionId, businessProfileId], references: [id, businessProfileId], onDelete: Cascade, onUpdate: NoAction)
+  kind                    String
+  position                Int
+  isVisible               Boolean @default(false)
+  width                   String @default("FULL")
+  configVersion           Int @default(1)
+  config                  Json @default("{}")
+  referencedProfileLinkId String?
+  referencedProfileLink   ProfileLink? @relation("ItemLink", fields: [referencedProfileLinkId, businessProfileId], references: [id, businessProfileId], onDelete: Restrict, onUpdate: NoAction)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  images                  ProfileItemImage[]
+
+  @@unique([id, businessProfileId])
+  @@index([sectionId, businessProfileId, position])
+  @@index([referencedProfileLinkId, businessProfileId])
+}
+
+model ProfileAsset {
+  id                String @id @default(cuid())
+  businessProfileId String
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  url               String @unique
+  pathname          String @unique
+  mimeType          String
+  byteSize          Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  images            ProfileItemImage[]
+  linkIcons         ProfileLink[] @relation("LinkIcon")
+
+  @@unique([id, businessProfileId])
+  @@index([businessProfileId])
+}
+
+model ProfileItemImage {
+  id                String @id @default(cuid())
+  businessProfileId String
+  itemId            String
+  item              ProfileSectionItem @relation(fields: [itemId, businessProfileId], references: [id, businessProfileId], onDelete: Cascade, onUpdate: NoAction)
+  assetId           String
+  asset             ProfileAsset @relation(fields: [assetId, businessProfileId], references: [id, businessProfileId], onDelete: Restrict, onUpdate: NoAction)
+  position          Int
+  alt               String @default("")
+  caption           String?
+  destinationUrl    String?
+
+  @@index([itemId, businessProfileId, position])
+  @@index([assetId, businessProfileId])
 }

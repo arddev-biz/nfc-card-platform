@@ -5,6 +5,7 @@ import {
   createProfileLink,
   listProfileLinks,
   OrganizationNotFoundError,
+  ProfileLinkConflictError,
 } from "@/lib/services/profile-links";
 
 export const runtime = "nodejs";
@@ -61,6 +62,9 @@ export async function POST(
   } catch (error) {
     if (error instanceof OrganizationNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof ProfileLinkConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error(error);
     return NextResponse.json(

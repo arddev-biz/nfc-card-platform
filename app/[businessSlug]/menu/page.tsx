@@ -39,7 +39,9 @@ export default async function PublicMenuPage({ params }: PageProps) {
 
   return (
     <main
-      className="min-h-screen bg-slate-50"
+      className={`min-h-screen bg-slate-50 ${menu.theme ? "profile-v2 v2-menu" : ""}`}
+      data-profile-theme={menu.theme ?? undefined} data-radius={menu.design?.radius} data-density={menu.design?.density} data-default-surface={menu.design?.surface}
+      data-appearance={menu.backgroundMode === "DARK" ? "dark" : "light"}
       style={{ ["--theme" as string]: themeColor } as CSSProperties}
     >
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-8">

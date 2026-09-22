@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApiUser } from "@/lib/auth/session";
-import { businessInputSchema } from "@/lib/validation/business";
+import { businessUpdateSchema } from "@/lib/validation/business";
 import { getOrganizationById, updateOrganization, SlugTakenError, isSlugUniqueConstraintError } from "@/lib/services/organizations";
 
 export const runtime = "nodejs";
@@ -32,7 +32,7 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = businessInputSchema.safeParse(body);
+  const parsed = businessUpdateSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(

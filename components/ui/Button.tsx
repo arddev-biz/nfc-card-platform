@@ -11,10 +11,10 @@ const variantStyles: Record<ButtonVariant, string> = {
   primary:
     "bg-[var(--admin-accent)] text-[var(--admin-accent-text)] hover:brightness-95",
   secondary:
-    "bg-[var(--admin-card)] text-[var(--admin-text)] border border-[var(--admin-border)] hover:bg-[var(--admin-border)]",
+    "bg-[var(--admin-card)] text-[var(--admin-text)] border border-[var(--admin-border)] hover:bg-[var(--admin-hover,var(--admin-border))]",
   ghost:
     "bg-transparent text-[var(--admin-text)] hover:bg-[var(--admin-border)]",
-  destructive: "bg-red-600 text-white hover:bg-red-700",
+  destructive: "bg-[var(--admin-destructive,#dc2626)] text-white hover:brightness-90",
 };
 
 /**

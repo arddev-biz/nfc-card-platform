@@ -21,7 +21,7 @@ export interface BlockDefinition {
   category: BlockCategory;
   /** Default position when a business has no saved override — this is what makes every existing business render unchanged. */
   defaultPosition: number;
-  /** Can more than one instance exist on the same profile? (HEADING/TEXT/DIVIDER). System content blocks are singleton — enforced in the service layer, not a DB constraint. */
+  /** Whether multiple instances may exist. All currently supported system blocks are singletons. */
   repeatable: boolean;
   /** Whether "Add Block" should ever offer this type. System blocks backed by existing content (BIO, CONTACT, etc.) are pre-existing/always present and are never "added" — only repeatable custom blocks are addable. */
   addable: boolean;
@@ -36,10 +36,8 @@ export interface BlockDefinition {
  * sense) — it's edited directly via its own dedicated settings, not
  * through this list.
  *
- * Adding a genuinely new block type later means: one enum value, one
- * entry here, one case in ProfileRenderer's switch, one settings
- * component registered in blockEditors — nothing else in the shell
- * changes.
+ * New block types are added only as a complete schema, service, editor,
+ * and renderer change.
  */
 export const BLOCK_REGISTRY: Record<ProfileBlockKey, BlockDefinition> = {
   BIO: {
@@ -118,39 +116,6 @@ export const BLOCK_REGISTRY: Record<ProfileBlockKey, BlockDefinition> = {
     addable: false,
     deletable: false,
     duplicatable: false,
-  },
-  HEADING: {
-    key: "HEADING",
-    label: "Heading",
-    description: "A section title, e.g. \"Follow us\".",
-    category: "essential",
-    defaultPosition: 100,
-    repeatable: true,
-    addable: true,
-    deletable: true,
-    duplicatable: true,
-  },
-  TEXT: {
-    key: "TEXT",
-    label: "Text",
-    description: "A free-form paragraph of text.",
-    category: "essential",
-    defaultPosition: 100,
-    repeatable: true,
-    addable: true,
-    deletable: true,
-    duplicatable: true,
-  },
-  DIVIDER: {
-    key: "DIVIDER",
-    label: "Divider",
-    description: "A simple visual separator between sections.",
-    category: "essential",
-    defaultPosition: 100,
-    repeatable: true,
-    addable: true,
-    deletable: true,
-    duplicatable: true,
   },
 };
 

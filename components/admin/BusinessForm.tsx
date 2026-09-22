@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { GRADIENT_PRESETS, GRADIENT_PRESET_ORDER } from "@/lib/background";
@@ -355,15 +356,7 @@ export function BusinessForm({
         </div>
 
         <div>
-          <label htmlFor="themeColor" className="block text-sm font-medium text-[var(--admin-text)]">
-            Theme color
-          </label>
-          <Input
-            id="themeColor"
-            placeholder="#4F46E5"
-            value={values.themeColor}
-            onChange={(e) => update("themeColor", e.target.value)}
-          />
+          <ColorPicker label="Accent Color" value={values.themeColor} onChange={value=>update("themeColor",value)} allowEmpty/>
           {fieldError("themeColor") && (
             <p className="mt-1 text-sm text-red-600">{fieldError("themeColor")}</p>
           )}
@@ -405,18 +398,7 @@ export function BusinessForm({
 
         {values.backgroundType === "SOLID" && (
           <div>
-            <label
-              htmlFor="backgroundColor"
-              className="block text-sm font-medium text-[var(--admin-text)]"
-            >
-              Background color
-            </label>
-            <Input
-              id="backgroundColor"
-              placeholder="#F7F7F8"
-              value={values.backgroundColor}
-              onChange={(e) => update("backgroundColor", e.target.value)}
-            />
+            <ColorPicker label="Background color" value={values.backgroundColor} onChange={value=>update("backgroundColor",value)} allowEmpty/>
             {fieldError("backgroundColor") && (
               <p className="mt-1 text-sm text-red-600">{fieldError("backgroundColor")}</p>
             )}

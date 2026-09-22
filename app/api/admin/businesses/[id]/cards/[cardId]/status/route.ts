@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminApiUser } from "@/lib/auth/session";
 import { cardStatusUpdateSchema } from "@/lib/validation/nfc-cards";
-import { setCardStatus, OrganizationNotFoundError, CardNotFoundError } from "@/lib/services/nfc-cards";
+import {
+  setCardStatus,
+  OrganizationNotFoundError,
+  CardNotFoundError,
+  CardStatusConflictError,
+} from "@/lib/services/nfc-cards";
 
 export const runtime = "nodejs";
 
@@ -27,6 +32,9 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof OrganizationNotFoundError || error instanceof CardNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof CardStatusConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error(error);
     return NextResponse.json(

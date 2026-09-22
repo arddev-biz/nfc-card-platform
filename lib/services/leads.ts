@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { createOrganization } from "@/lib/services/organizations";
+import { createOrganizationInTransaction } from "@/lib/services/organizations";
 import type { LeadSubmissionInput } from "@/lib/validation/leads";
 import type { LeadStatus } from "@prisma/client";
 
@@ -52,46 +52,43 @@ export async function updateLeadStatus(id: string, status: Exclude<LeadStatus, "
 }
 
 /**
- * Converts a Lead into a real Organization by calling the exact same
- * creation path as manual business creation (Phase 3's
- * createOrganization) — no duplicated business-creation logic, and it
- * gets the same atomic Organization+Profile+Subscription behavior for
- * free.
- *
- * The lead's own status/link update is a separate follow-up write
- * (Prisma's transaction client can't easily span two independent
- * service functions without changing createOrganization's signature,
- * which would touch approved Phase 3 code for a Phase 8 need). If that
- * follow-up write were to fail after the organization was created, the
- * organization itself is still fully valid and usable — the only
- * consequence is this lead not showing as CONVERTED, a safe and
- * visible inconsistency rather than a corrupted business record.
- *
- * Double conversion is guarded by an application-level check on the
- * lead's current state; the Convert button also disables immediately
- * on click client-side to make an accidental double-click harmless in
- * practice.
+ * Converts and links a lead in one transaction using the same
+ * organization-creation implementation as the manual flow. The
+ * conditional update claims the lead row, so concurrent attempts cannot
+ * both create an organization. Any later failure rolls the claim and all
+ * newly-created records back together.
  */
 export async function convertLeadToOrganization(leadId: string) {
-  const lead = await db.lead.findUnique({ where: { id: leadId } });
-  if (!lead) {
-    throw new LeadNotFoundError();
-  }
-  if (lead.status === "CONVERTED" || lead.convertedOrganizationId) {
-    throw new LeadAlreadyConvertedError();
-  }
+  return db.$transaction(async (tx) => {
+    const lead = await tx.lead.findUnique({ where: { id: leadId } });
+    if (!lead) {
+      throw new LeadNotFoundError();
+    }
 
-  const { organization } = await createOrganization({
-    businessName: lead.businessName,
-    businessType: lead.businessType ?? undefined,
-    phone: lead.phone,
-    email: lead.email ?? undefined,
+    const claimed = await tx.lead.updateMany({
+      where: {
+        id: leadId,
+        status: { not: "CONVERTED" },
+        convertedOrganizationId: null,
+      },
+      data: { status: "CONVERTED" },
+    });
+    if (claimed.count !== 1) {
+      throw new LeadAlreadyConvertedError();
+    }
+
+    const { organization } = await createOrganizationInTransaction(tx, {
+      businessName: lead.businessName,
+      businessType: lead.businessType ?? undefined,
+      phone: lead.phone,
+      email: lead.email ?? undefined,
+    });
+
+    const updatedLead = await tx.lead.update({
+      where: { id: leadId },
+      data: { convertedOrganizationId: organization.id },
+    });
+
+    return { organization, lead: updatedLead };
   });
-
-  const updatedLead = await db.lead.update({
-    where: { id: leadId },
-    data: { status: "CONVERTED", convertedOrganizationId: organization.id },
-  });
-
-  return { organization, lead: updatedLead };
 }

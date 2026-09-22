@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 interface BlockStructureListProps {
   blocks: ResolvedBlock[];
   selectedKey: ProfileBlockKey | "HEADER" | null;
-  busyKey: string | null;
+  busyBlockId: string | null;
   onSelect: (key: ProfileBlockKey) => void;
   onReorder: (next: ResolvedBlock[]) => void;
   onMove: (index: number, direction: -1 | 1) => void;
@@ -52,7 +52,7 @@ function SortableRow({
   onToggleVisible: (block: ResolvedBlock) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: block.key,
+    id: block.id,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -65,7 +65,7 @@ function SortableRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 px-3 py-2.5",
+        "flex items-start gap-3 px-3 py-4",
         isSelected && "bg-[var(--admin-accent)]/10"
       )}
     >
@@ -105,8 +105,8 @@ function SortableRow({
         onClick={() => onSelect(block.key)}
         className="min-w-0 flex-1 text-left"
       >
-        <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium text-[var(--admin-text)]">{block.label}</span>
+        <span className="flex flex-col items-start gap-2">
+          <span className="break-words text-sm font-medium text-[var(--admin-text)]">{block.label}</span>
           {!block.isAvailable && <Badge tone="gray">No content yet</Badge>}
         </span>
       </button>
@@ -119,13 +119,13 @@ function SortableRow({
         disabled={isBusy}
         onClick={() => onToggleVisible(block)}
         className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50",
+          "relative mt-1 h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50",
           block.isVisible ? "bg-[var(--admin-accent)]" : "bg-[var(--admin-border)]"
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+            "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
             block.isVisible ? "translate-x-4" : "translate-x-0.5"
           )}
         />
@@ -137,7 +137,7 @@ function SortableRow({
 export function BlockStructureList({
   blocks,
   selectedKey,
-  busyKey,
+  busyBlockId,
   onSelect,
   onReorder,
   onMove,
@@ -151,24 +151,24 @@ export function BlockStructureList({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = blocks.findIndex((b) => b.key === active.id);
-    const newIndex = blocks.findIndex((b) => b.key === over.id);
+    const oldIndex = blocks.findIndex((b) => b.id === active.id);
+    const newIndex = blocks.findIndex((b) => b.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     onReorder(arrayMove(blocks, oldIndex, newIndex).map((b, i) => ({ ...b, position: i })));
   }
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={blocks.map((b) => b.key)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
         <ul className="divide-y divide-[var(--admin-border)] rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)]">
           {blocks.map((block, index) => (
             <SortableRow
-              key={block.key}
+              key={block.id}
               block={block}
               index={index}
               total={blocks.length}
               isSelected={selectedKey === block.key}
-              isBusy={busyKey === block.key}
+              isBusy={busyBlockId === block.id}
               onSelect={onSelect}
               onMove={onMove}
               onToggleVisible={onToggleVisible}

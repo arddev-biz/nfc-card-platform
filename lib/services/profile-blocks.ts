@@ -1,8 +1,15 @@
 import "server-only";
+import {PLATFORM_NAME} from "@/lib/platform";
 import { db } from "@/lib/db";
+import { getV2Data } from "@/lib/services/profile-v2";
 import { BLOCK_REGISTRY, SYSTEM_BLOCK_ORDER, type ResolvedBlock } from "@/lib/blocks/registry";
 import type { Prisma, ProfileBlockKey } from "@prisma/client";
 import type { PublicBusinessProfile } from "@/lib/services/public-profile";
+import {
+  normalizeBackgroundGradient,
+  normalizeBackgroundMode,
+  normalizeBackgroundType,
+} from "@/lib/background";
 
 export type { ResolvedBlock };
 
@@ -56,6 +63,8 @@ export async function getBuilderProfileData(
       businessType: true,
       profile: {
         select: {
+          builderVersion: true,
+          isVerified: true, verificationColor: true, verificationTooltip:true,
           displayName: true,
           bio: true,
           logoUrl: true,
@@ -67,6 +76,7 @@ export async function getBuilderProfileData(
           backgroundImageUrl: true,
           backgroundMode: true,
           phone: true,
+          whatsapp: true,
           email: true,
           website: true,
           address: true,
@@ -83,7 +93,20 @@ export async function getBuilderProfileData(
 
   if (!organization || !organization.profile) return null;
 
-  return { ...organization, profile: organization.profile };
+  const v2=organization.profile.builderVersion===2 ? await getV2Data(organizationId) : undefined;
+  const branding=organization.profile.builderVersion===2 ? {platformName:PLATFORM_NAME} : undefined;
+
+  return {
+    ...organization,
+    branding,
+    v2: v2 ?? undefined,
+    profile: {
+      ...organization.profile,
+      backgroundType: normalizeBackgroundType(organization.profile.backgroundType),
+      backgroundGradient: normalizeBackgroundGradient(organization.profile.backgroundGradient),
+      backgroundMode: normalizeBackgroundMode(organization.profile.backgroundMode),
+    },
+  };
 }
 
 /**
@@ -105,18 +128,15 @@ async function ensureSystemBlocksExist(businessProfileId: string): Promise<void>
   const missing = SYSTEM_BLOCK_ORDER.filter((key) => !existingKeys.has(key));
   if (missing.length === 0) return;
 
-  await db.$transaction(
-    missing.map((key) =>
-      db.profileBlockLayout.create({
-        data: {
-          businessProfileId,
-          blockKey: key,
-          position: BLOCK_REGISTRY[key].defaultPosition,
-          isVisible: true,
-        },
-      })
-    )
-  );
+  await db.profileBlockLayout.createMany({
+    data: missing.map((key) => ({
+      businessProfileId,
+      blockKey: key,
+      position: BLOCK_REGISTRY[key].defaultPosition,
+      isVisible: true,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 function toResolvedBlock(
@@ -132,17 +152,13 @@ function toResolvedBlock(
     position: row.position,
     isVisible: row.isVisible,
     config: (row.config as Record<string, unknown> | null) ?? null,
-    // Repeatable custom blocks (Heading/Text/Divider) ARE their own
-    // content — always available once they exist. System blocks defer
-    // to the availability map computed from real underlying data.
-    isAvailable: def.repeatable ? true : availability[row.blockKey],
+    isAvailable: availability[row.blockKey],
   };
 }
 
 /**
- * Resolves the FULL block list for the Builder: every system block
- * (lazily created if missing) plus every custom block instance,
- * addressed by real row id, sorted by position. This is the Builder's
+ * Resolves the full system-block list for the Builder, addressed by
+ * real row id and sorted by position. This is the Builder's
  * read path — the public page uses getResolvedBlockLayoutForSlug below,
  * which does NOT lazily create rows (a public page view must never
  * write to the database).
@@ -167,10 +183,8 @@ export async function getResolvedBlockLayout(
  * ensureSystemBlocksExist) — a business that has never had its Builder
  * opened has zero ProfileBlockLayout rows, and this falls back to the
  * registry's default order/visibility for the 7 system blocks, with no
- * custom blocks (since none can exist without having been created via
- * the Builder, which requires the rows to already exist). This is what
- * makes every pre-existing business backward-compatible without a
- * migration.
+ * This keeps every pre-existing business backward-compatible without a
+ * block-row backfill migration.
  */
 export async function getResolvedBlockLayoutForSlug(
   slug: string,

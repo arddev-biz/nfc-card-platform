@@ -17,6 +17,13 @@ export class CardNotFoundError extends Error {
   }
 }
 
+export class CardStatusConflictError extends Error {
+  constructor() {
+    super("A replaced card cannot be reactivated.");
+    this.name = "CardStatusConflictError";
+  }
+}
+
 /** True if a Prisma unique-constraint violation (P2002) was on the NFCCard `token` field. */
 function isTokenUniqueConstraintError(error: unknown): boolean {
   return (
@@ -125,6 +132,10 @@ export async function setCardStatus(
   status: CardStatus
 ) {
   const existing = await findOwnedCard(organizationId, cardId);
+
+  if (existing.status === "REPLACED" && status !== "REPLACED") {
+    throw new CardStatusConflictError();
+  }
 
   return db.nFCCard.update({
     where: { id: existing.id },

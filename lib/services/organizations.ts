@@ -1,8 +1,10 @@
 import "server-only";
+import { initialV2Sections } from "@/lib/services/profile-v2";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { slugify } from "@/lib/slugify";
-import type { BusinessInput } from "@/lib/validation/business";
+import type { BusinessInput, BusinessUpdateInput } from "@/lib/validation/business";
+import type { ProfileContentUpdateInput } from "@/lib/validation/profile-content";
 import type { OrgStatus } from "@prisma/client";
 
 export class SlugTakenError extends Error {
@@ -31,10 +33,16 @@ export function isSlugUniqueConstraintError(error: unknown): boolean {
  */
 const RESERVED_SLUGS = new Set(["admin", "api", "login", "logout", "c", "get-started"]);
 
+type OrganizationReader = Pick<Prisma.TransactionClient, "organization">;
+
 /** Returns true if the given slug is already used by a different organization, or is reserved. */
-async function slugExists(slug: string, excludeOrganizationId?: string): Promise<boolean> {
+async function slugExists(
+  client: OrganizationReader,
+  slug: string,
+  excludeOrganizationId?: string
+): Promise<boolean> {
   if (RESERVED_SLUGS.has(slug)) return true;
-  const existing = await db.organization.findUnique({ where: { slug } });
+  const existing = await client.organization.findUnique({ where: { slug } });
   if (!existing) return false;
   if (excludeOrganizationId && existing.id === excludeOrganizationId) return false;
   return true;
@@ -48,7 +56,8 @@ async function slugExists(slug: string, excludeOrganizationId?: string): Promise
  */
 export async function generateUniqueSlug(
   base: string,
-  excludeOrganizationId?: string
+  excludeOrganizationId?: string,
+  client: OrganizationReader = db
 ): Promise<string> {
   const normalizedBase = slugify(base) || "business";
   let candidate = normalizedBase;
@@ -58,7 +67,7 @@ export async function generateUniqueSlug(
   // than looping forever. 1000 attempts is far more than any real V1
   // usage pattern would ever hit.
   for (let attempts = 0; attempts < 1000; attempts += 1) {
-    if (!(await slugExists(candidate, excludeOrganizationId))) {
+    if (!(await slugExists(client, candidate, excludeOrganizationId))) {
       return candidate;
     }
     candidate = `${normalizedBase}-${suffix}`;
@@ -131,63 +140,70 @@ export async function getOrganizationById(id: string) {
  * null), matching the approved V1 architecture: businesses are
  * manually managed by the SUPER_ADMIN, not self-service accounts.
  */
-export async function createOrganization(input: BusinessInput) {
+export async function createOrganizationInTransaction(
+  tx: Prisma.TransactionClient,
+  input: BusinessInput
+) {
   let slug: string;
 
   if (input.slug) {
-    if (await slugExists(input.slug)) {
+    if (await slugExists(tx, input.slug)) {
       throw new SlugTakenError(input.slug);
     }
     slug = input.slug;
   } else {
-    slug = await generateUniqueSlug(input.businessName);
+    slug = await generateUniqueSlug(input.businessName, undefined, tx);
   }
 
   const startDate = new Date();
   const endDate = addMonths(startDate, 12);
 
   try {
-    return await db.$transaction(async (tx) => {
-      const organization = await tx.organization.create({
-        data: {
-          name: input.businessName,
-          slug,
-          businessType: input.businessType,
-          status: "ACTIVE",
-        },
-      });
-
-      const profile = await tx.businessProfile.create({
-        data: {
-          organizationId: organization.id,
-          displayName: input.displayName || input.businessName,
-          bio: input.bio,
-          phone: input.phone,
-          whatsapp: input.whatsapp,
-          email: input.email,
-          website: input.website,
-          address: input.address,
-          googleMapsUrl: input.googleMapsUrl,
-          themeColor: input.themeColor,
-          backgroundType: input.backgroundType,
-          backgroundColor: input.backgroundColor,
-          backgroundGradient: input.backgroundGradient,
-          backgroundMode: input.backgroundMode,
-        },
-      });
-
-      const subscription = await tx.subscription.create({
-        data: {
-          organizationId: organization.id,
-          plan: "standard",
-          status: "ACTIVE",
-          startDate,
-          endDate,
-        },
-      });
-
-      return { organization, profile, subscription };
+    const organization = await tx.organization.create({
+      data: {
+        name: input.businessName,
+        slug,
+        businessType: input.businessType,
+        status: "ACTIVE",
+      },
     });
+
+    const profile = await tx.businessProfile.create({
+      data: {
+        organizationId: organization.id,
+        builderVersion: 2,
+        sections: { create: initialV2Sections() },
+        links: { create: [
+          ...(input.whatsapp ? [{ type: "WHATSAPP" as const, label: "WhatsApp", url: input.whatsapp, sortOrder: 0 }] : []),
+          ...(input.website ? [{ type: "WEBSITE" as const, label: "Website", url: input.website, sortOrder: 1 }] : []),
+        ] },
+        displayName: input.displayName || input.businessName,
+        bio: input.bio,
+        phone: input.phone,
+        whatsapp: null,
+        email: input.email,
+        website: null,
+        address: input.address,
+        googleMapsUrl: input.googleMapsUrl,
+        themeColor: input.themeColor,
+        backgroundType: input.backgroundType,
+        backgroundColor: input.backgroundColor,
+        backgroundGradient: input.backgroundGradient,
+        backgroundMode: input.backgroundMode,
+      },
+    });
+
+    const subscription = await tx.subscription.create({
+      data: {
+        organizationId: organization.id,
+        plan: "standard",
+        status: "ACTIVE",
+        startDate,
+        endDate,
+      },
+    });
+
+    return { organization, profile, subscription };
   } catch (error) {
     if (isSlugUniqueConstraintError(error)) {
       throw new SlugTakenError(slug);
@@ -196,12 +212,16 @@ export async function createOrganization(input: BusinessInput) {
   }
 }
 
+export async function createOrganization(input: BusinessInput) {
+  return db.$transaction((tx) => createOrganizationInTransaction(tx, input));
+}
+
 /**
  * Updates an existing Organization and its BusinessProfile. Does not
  * touch the Subscription — subscription tracking is display-only in
  * V1 (see the admin edit page for the read-only summary).
  */
-export async function updateOrganization(id: string, input: BusinessInput) {
+export async function updateOrganization(id: string, input: BusinessUpdateInput) {
   const existing = await db.organization.findUnique({ where: { id } });
   if (!existing) {
     return null;
@@ -210,7 +230,7 @@ export async function updateOrganization(id: string, input: BusinessInput) {
   let slug = existing.slug;
 
   if (input.slug && input.slug !== existing.slug) {
-    if (await slugExists(input.slug, id)) {
+    if (await slugExists(db, input.slug, id)) {
       throw new SlugTakenError(input.slug);
     }
     slug = input.slug;
@@ -230,7 +250,7 @@ export async function updateOrganization(id: string, input: BusinessInput) {
       const profile = await tx.businessProfile.update({
         where: { organizationId: id },
         data: {
-          displayName: input.displayName || input.businessName,
+          displayName: input.displayName,
           bio: input.bio,
           phone: input.phone,
           whatsapp: input.whatsapp,
@@ -285,18 +305,7 @@ export async function setOrganizationStatus(id: string, status: OrgStatus) {
  */
 export async function updateProfileContentFields(
   organizationId: string,
-  input: Partial<{
-    displayName: string;
-    bio: string;
-    phone: string;
-    address: string;
-    googleMapsUrl: string;
-    themeColor: string;
-    backgroundType: "SOLID" | "GRADIENT" | "IMAGE";
-    backgroundColor: string;
-    backgroundGradient: "INDIGO" | "PURPLE" | "BLUE" | "SUNSET" | "EMERALD" | "ROSE" | "DARK";
-    backgroundMode: "LIGHT" | "DARK";
-  }>
+  input: ProfileContentUpdateInput
 ) {
   const profile = await db.businessProfile.findUnique({ where: { organizationId } });
   if (!profile) return null;

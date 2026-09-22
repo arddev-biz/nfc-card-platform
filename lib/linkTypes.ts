@@ -142,8 +142,14 @@ export function isRenderableLinkValue(type: LinkType, value: string): boolean {
     case "email":
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
     case "url":
-    default:
-      return /^https?:\/\//i.test(trimmed);
+    default: {
+      try {
+        const parsed = new URL(trimmed);
+        return (parsed.protocol === "http:" || parsed.protocol === "https:") && Boolean(parsed.hostname);
+      } catch {
+        return false;
+      }
+    }
   }
 }
 

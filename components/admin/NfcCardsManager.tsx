@@ -42,7 +42,7 @@ function availableStatusActions(status: CardStatus): { label: string; next: Card
         { label: "Mark as replaced", next: "REPLACED" },
       ];
     case "REPLACED":
-      return [{ label: "Reactivate", next: "ACTIVE" }];
+      return [];
     default:
       return [];
   }

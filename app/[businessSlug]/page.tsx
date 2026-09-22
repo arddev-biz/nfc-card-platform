@@ -27,7 +27,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: name,
-    description: business.profile.bio?.slice(0, 160) || `${name} — contact and links.`,
+    description: (business.v2?.version !== 2 || business.v2.sections.some(s => s.singletonKey === "BIO" && s.isVisible))
+      ? business.profile.bio?.slice(0, 160) || `${name} — contact and links.` : `${name} — contact and links.`,
   };
 }
 
@@ -43,7 +44,7 @@ export default async function PublicBusinessProfilePage({ params }: PageProps) {
 
   const availability = computeAvailabilityFromViewModel(business, viewModel, menuAvailable);
 
-  const resolvedBlocks = await getResolvedBlockLayoutForSlug(params.businessSlug, availability);
+  const resolvedBlocks = business.v2?.version === 2 ? [] : await getResolvedBlockLayoutForSlug(params.businessSlug, availability);
   // Only ever null if the organization vanished between the two lookups
   // above (or was suspended/archived in that instant) — treat identically
   // to "not found", matching every other public lookup's behavior.

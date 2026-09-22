@@ -1,5 +1,13 @@
 import "server-only";
+import {PLATFORM_NAME} from "@/lib/platform";
 import { db } from "@/lib/db";
+import { getV2Data } from "@/lib/services/profile-v2";
+import type { V2Data } from "@/lib/profile-v2";
+import {
+  normalizeBackgroundGradient,
+  normalizeBackgroundMode,
+  normalizeBackgroundType,
+} from "@/lib/background";
 
 /**
  * Loads everything the public /[businessSlug] page is allowed to show,
@@ -20,10 +28,13 @@ export async function getPublicBusinessProfile(slug: string) {
   const organization = await db.organization.findFirst({
     where: { slug, status: "ACTIVE" },
     select: {
+      id: true,
       name: true,
       businessType: true,
       profile: {
         select: {
+          builderVersion: true,
+          isVerified: true, verificationColor: true, verificationTooltip:true,
           displayName: true,
           bio: true,
           logoUrl: true,
@@ -35,6 +46,7 @@ export async function getPublicBusinessProfile(slug: string) {
           backgroundImageUrl: true,
           backgroundMode: true,
           phone: true,
+          whatsapp: true,
           email: true,
           website: true,
           address: true,
@@ -65,12 +77,23 @@ export async function getPublicBusinessProfile(slug: string) {
     return null;
   }
 
+  const v2=organization.profile.builderVersion===2 ? await getV2Data(organization.id) : undefined;
+  const branding=organization.profile.builderVersion===2 ? {platformName:PLATFORM_NAME} : undefined;
+
   return {
-    ...organization,
-    profile: organization.profile,
+    name: organization.name,
+    businessType: organization.businessType,
+    branding,
+    v2: v2 ?? undefined,
+    profile: {
+      ...organization.profile,
+      backgroundType: normalizeBackgroundType(organization.profile.backgroundType),
+      backgroundGradient: normalizeBackgroundGradient(organization.profile.backgroundGradient),
+      backgroundMode: normalizeBackgroundMode(organization.profile.backgroundMode),
+    },
   };
 }
 
-export type PublicBusinessProfile = NonNullable<
+export type PublicBusinessProfile = Omit<NonNullable<
   Awaited<ReturnType<typeof getPublicBusinessProfile>>
->;
+>, "v2" | "profile" | "branding"> & { branding?:{platformName:string}; v2?: V2Data; profile: Omit<NonNullable<Awaited<ReturnType<typeof getPublicBusinessProfile>>>["profile"], "builderVersion" | "isVerified" | "verificationColor" | "verificationTooltip"> & { builderVersion?: number; isVerified?: boolean; verificationColor?: string; verificationTooltip?:string|null } };

@@ -1,4 +1,10 @@
+import {profilePresentation} from "@/lib/profile-presentation";
+import { resolveFooter } from "@/lib/branding";
+import { resolveProfileDesign } from "@/lib/profile-design";
+import { VerificationBadge } from "./VerificationBadge";
 import Image from "next/image";
+import { V2SectionContent } from "@/components/profile/V2SectionContent";
+import { isV2SectionAvailable } from "@/lib/blocks/availability";
 import NextLink from "next/link";
 import type { LinkType } from "@prisma/client";
 import { buildLinkHref, opensInNewTab } from "@/lib/linkTypes";
@@ -18,6 +24,7 @@ interface ProfileRendererProps {
   menuAvailable: boolean;
   /** Used to build the "/menu" link. In the builder preview this can be any placeholder slug — the link is never actually followed there. */
   slug: string;
+  preview?: boolean;
 }
 
 /** Simple generic menu/list glyph — matches LinkIcon's style (no brand logos, no new dependency). */
@@ -37,10 +44,18 @@ function MenuGlyph({ className }: { className?: string }) {
   );
 }
 
-export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, slug }: ProfileRendererProps) {
+export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, slug, preview = false }: ProfileRendererProps) {
   const { profile } = business;
-  const themeColor = profile.themeColor || DEFAULT_THEME_COLOR;
+  const isV2=business.v2?.version===2;
+  const design=resolveProfileDesign(business.v2?.design,business.v2?.theme);
+  const themeColor = isV2&&design.accentEnabled===false ? "currentColor" : profile.themeColor || DEFAULT_THEME_COLOR;
   const background = resolveBackground(profile);
+  // V2 soft-dark is explicit even when no custom background color exists.
+  if (business.v2?.version === 2 && profile.backgroundMode === "DARK") {
+    background.mode = "dark";
+    if (!profile.backgroundColor && profile.backgroundType === "SOLID") background.style = { backgroundColor: "#303644" };
+  }
+  if(isV2&&design.backgroundPreset&&design.backgroundPreset!=="CUSTOM") {background.mode=["DUSK","MIDNIGHT"].includes(design.backgroundPreset)?"dark":"light";background.hasImage=false;}
   const isDark = background.mode === "dark";
 
   const cardClass = isDark
@@ -50,7 +65,7 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
   const secondaryTextClass = isDark ? "text-white/70" : "text-slate-600";
   const mutedTextClass = isDark ? "text-white/40" : "text-slate-400";
   const dividerClass = isDark ? "divide-white/10" : "divide-slate-100";
-  const badgeTintStyle = { backgroundColor: `${themeColor}${isDark ? "33" : "1A"}`, color: themeColor };
+  const badgeTintStyle = { backgroundColor: isV2&&design.accentEnabled===false?"transparent":`${themeColor}${isDark ? "33" : "1A"}`, color: themeColor };
 
   function actionButton(key: string, type: LinkType, label: string, href: string) {
     return (
@@ -223,23 +238,26 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
     }
   }
 
-  const renderedBlocks = blocks.map(renderBlock).filter(Boolean);
+  const renderedBlocks = isV2
+    ? (viewModel.v2Sections ?? []).filter(section => isV2SectionAvailable(section, business, viewModel, menuAvailable)).map(section => <V2SectionContent key={section.id} section={section} business={business} viewModel={viewModel} menuAvailable={menuAvailable} slug={slug} />)
+    : blocks.map(renderBlock).filter(Boolean);
   const hasAnyContent = renderedBlocks.length > 0;
 
   return (
-    <main className="relative min-h-screen" style={background.style}>
+    <main className={`relative min-h-screen ${isV2 ? "profile-v2" : ""}`} data-hover-style={isV2?design.hoverStyle??"SOFT_LIFT":undefined} data-profile-theme={isV2 ? design.theme : undefined} data-preview={preview} data-radius={isV2 ? design.radius : undefined} data-card-size={isV2 ? design.cardSize??"MEDIUM" : undefined} data-density={isV2 ? design.density : undefined} data-default-surface={isV2 ? design.surface : undefined} data-icon-style={isV2 ? design.iconStyle : undefined} data-appearance={isDark ? "dark" : "light"} style={{...background.style,...(isV2 ? { "--v2-accent": themeColor,...profilePresentation(design) } : {})}}>
       {background.hasImage && (
         <div
           className="pointer-events-none absolute inset-0"
           style={{ backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)" }}
         />
       )}
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col pb-12">
+      <div className={`relative z-10 mx-auto flex min-h-screen w-full flex-col pb-12 ${isV2 ? "v2-canvas" : "max-w-md"}`}>
         {/* HEADER — fixed, not a reorderable/hideable block (a profile without one doesn't make sense) */}
         <div className="relative">
-          <div
+          {(!isV2 || profile.coverImageUrl) && <div
+            data-profile-cover
             className="relative h-48 w-full overflow-hidden rounded-b-3xl sm:h-64"
-            style={{ background: `linear-gradient(135deg, ${themeColor}40, ${themeColor}0D)` }}
+            style={{ background: isV2&&design.accentEnabled===false?"var(--v2-surface)":`linear-gradient(135deg, ${themeColor}40, ${themeColor}0D)` }}
           >
             {profile.coverImageUrl && (
               <Image
@@ -252,16 +270,16 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
               />
             )}
             <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent" />
-          </div>
+          </div>}
 
-          <header className={`px-5 text-center ${profile.logoUrl ? "-mt-12" : "mt-5"}`}>
+          <header className={`px-5 text-center ${isV2 && !profile.coverImageUrl ? "pt-8" : profile.logoUrl ? "-mt-12" : "mt-5"}`}>
             {profile.logoUrl && (
               <div className="relative mx-auto mb-4 h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
                 <Image src={profile.logoUrl} alt={profile.displayName} fill sizes="96px" className="object-cover" />
               </div>
             )}
             <h1 className={`text-2xl font-bold tracking-tight ${primaryTextClass}`}>
-              {profile.displayName || business.name}
+              {profile.displayName || business.name} {profile.isVerified && <VerificationBadge color={profile.verificationColor} tooltip={profile.verificationTooltip}/>}
             </h1>
             {business.businessType && (
               <span className="mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold" style={badgeTintStyle}>
@@ -271,7 +289,7 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
           </header>
         </div>
 
-        <div className="flex flex-col gap-4 px-5 pt-6">
+        <div className={`flex flex-col gap-4 px-5 pt-6 ${isV2 ? "v2-content" : ""}`}>
           {renderedBlocks}
 
           {!hasAnyContent && (
@@ -280,9 +298,9 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
             </p>
           )}
 
-          <footer className={`pt-8 text-center text-xs ${mutedTextClass}`}>
-            {profile.displayName || business.name}
-          </footer>
+          {(!isV2||resolveFooter(design.footer,business.branding?.platformName))&&<footer className={`pt-8 text-center text-xs ${mutedTextClass}`}>
+            {isV2?resolveFooter(design.footer,business.branding?.platformName):profile.displayName || business.name}
+          </footer>}
         </div>
       </div>
     </main>

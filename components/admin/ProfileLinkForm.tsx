@@ -5,6 +5,7 @@ import { LinkType } from "@prisma/client";
 import { LINK_TYPE_META, LINK_TYPE_ORDER } from "@/lib/linkTypes";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import type { LinkLike } from "@/components/admin/profile-builder/ReviewsEditor";
 
 export interface ProfileLinkFormValues {
   type: LinkType;
@@ -21,7 +22,7 @@ interface ProfileLinkFormProps {
   linkId?: string;
   initialValues?: Partial<ProfileLinkFormValues>;
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: (link: LinkLike) => void;
 }
 
 const emptyValues: ProfileLinkFormValues = {
@@ -80,7 +81,8 @@ export function ProfileLinkForm({
         return;
       }
 
-      onSaved();
+      if (!data.link) { setGeneralError("The server did not return the saved link."); return; }
+      onSaved(data.link);
     } catch {
       setGeneralError("Something went wrong. Please try again.");
     } finally {
@@ -89,7 +91,7 @@ export function ProfileLinkForm({
   }
 
   const valueInputType =
-    meta.valueKind === "email" ? "email" : meta.valueKind === "url" ? "url" : "text";
+    meta.valueKind === "email" ? "email" : meta.valueKind === "url" ? "url" : "tel";
 
   return (
     <form
@@ -97,6 +99,8 @@ export function ProfileLinkForm({
       noValidate
       className="space-y-4 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-bg)] p-4"
     >
+      <p role="status">{isSubmitting ? "Saving…" : "Unsaved link changes"}</p>
+      <p className="text-xs">Phone and Maps links are legacy fallbacks; profile fields take precedence. WhatsApp and Reviews allow one record per type; edit the existing record instead of adding a duplicate.</p>
       {generalError && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           {generalError}

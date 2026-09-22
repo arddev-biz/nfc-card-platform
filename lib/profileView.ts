@@ -1,5 +1,6 @@
 import { buildLinkHref, isRenderableLinkValue } from "@/lib/linkTypes";
 import type { PublicBusinessProfile } from "@/lib/services/public-profile";
+import type { V2Section } from "@/lib/profile-v2";
 
 type ProfileLinkLike = PublicBusinessProfile["profile"]["links"][number];
 
@@ -10,6 +11,7 @@ export interface BusinessInfoRow {
 }
 
 export interface ProfileViewModel {
+  v2Sections?: V2Section[];
   callHref?: string;
   whatsappHref?: string;
   directionsHref?: string;
@@ -28,17 +30,26 @@ export interface ProfileViewModel {
 export function buildProfileViewModel(business: PublicBusinessProfile): ProfileViewModel {
   const { profile } = business;
   const renderableLinks = profile.links.filter((link) => isRenderableLinkValue(link.type, link.url));
-  const linksByType = new Map(renderableLinks.map((link) => [link.type, link]));
+  const linkOfType = (type: ProfileLinkLike["type"]) =>
+    renderableLinks.find((link) => link.type === type);
 
-  const whatsappLink = linksByType.get("WHATSAPP");
-  const reviewsLink = linksByType.get("GOOGLE_REVIEWS");
-  const mapsLink = linksByType.get("GOOGLE_MAPS");
+  const phoneLink = linkOfType("PHONE");
+  const whatsappLink = linkOfType("WHATSAPP");
+  const reviewsLink = linkOfType("GOOGLE_REVIEWS");
+  const mapsLink = linkOfType("GOOGLE_MAPS");
+  const websiteLink = linkOfType("WEBSITE");
 
-  const callHref =
+  const phoneValue =
     profile.phone && isRenderableLinkValue("PHONE", profile.phone)
-      ? buildLinkHref("PHONE", profile.phone)
+      ? profile.phone
+      : phoneLink?.url;
+  const whatsappValue = whatsappLink?.url ?? profile.whatsapp ?? undefined;
+
+  const callHref = phoneValue ? buildLinkHref("PHONE", phoneValue) : undefined;
+  const whatsappHref =
+    whatsappValue && isRenderableLinkValue("WHATSAPP", whatsappValue)
+      ? buildLinkHref("WHATSAPP", whatsappValue)
       : undefined;
-  const whatsappHref = whatsappLink ? buildLinkHref("WHATSAPP", whatsappLink.url) : undefined;
   const directionsHref = profile.googleMapsUrl
     ? profile.googleMapsUrl
     : mapsLink
@@ -52,14 +63,14 @@ export function buildProfileViewModel(business: PublicBusinessProfile): ProfileV
     (link) => !["PHONE", "WHATSAPP", "GOOGLE_MAPS", "GOOGLE_REVIEWS"].includes(link.type)
   );
 
-  const hasExplicitWebsiteLink = linksByType.has("WEBSITE");
   const businessInfoRows: BusinessInfoRow[] = [
     profile.address ? { key: "address", label: profile.address } : null,
-    profile.phone ? { key: "phone", label: profile.phone, href: buildLinkHref("PHONE", profile.phone) } : null,
-    profile.website && !hasExplicitWebsiteLink
+    phoneValue ? { key: "phone", label: phoneValue, href: buildLinkHref("PHONE", phoneValue) } : null,
+    profile.website && !websiteLink
       ? { key: "website", label: profile.website.replace(/^https?:\/\//, ""), href: profile.website }
       : null,
   ].filter((row): row is BusinessInfoRow => row !== null);
 
-  return { callHref, whatsappHref, directionsHref, reviewsHref, secondaryLinks, businessInfoRows };
+  return { callHref, whatsappHref, directionsHref, reviewsHref, secondaryLinks, businessInfoRows,
+    v2Sections: business.v2?.version === 2 ? business.v2.sections.filter(s => s.isVisible).sort((a,b) => a.position - b.position) : undefined };
 }

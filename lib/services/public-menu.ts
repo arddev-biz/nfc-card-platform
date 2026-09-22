@@ -1,4 +1,5 @@
 import "server-only";
+import { resolveProfileDesign } from "@/lib/profile-design";
 import { db } from "@/lib/db";
 
 /**
@@ -56,7 +57,7 @@ export async function getPublicMenu(slug: string) {
     where: { slug, status: "ACTIVE" },
     select: {
       name: true,
-      profile: { select: { displayName: true, themeColor: true } },
+      profile: { select: { displayName: true, themeColor: true, builderVersion: true, theme: true, designConfig: true, backgroundMode: true } },
       modules: {
         where: { type: "MENU" },
         select: { isEnabled: true },
@@ -106,6 +107,9 @@ export async function getPublicMenu(slug: string) {
   return {
     businessName: organization.profile.displayName || organization.name,
     themeColor: organization.profile.themeColor,
+    theme: organization.profile.builderVersion === 2 ? resolveProfileDesign(organization.profile.designConfig,organization.profile.theme).theme : null,
+    design: organization.profile.builderVersion === 2 ? resolveProfileDesign(organization.profile.designConfig,organization.profile.theme) : null,
+    backgroundMode: organization.profile.backgroundMode,
     menuName: organization.menu.name,
     menuDescription: organization.menu.description,
     categories: categoriesWithItems,

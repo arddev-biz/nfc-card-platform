@@ -23,6 +23,7 @@ export function Badge({ tone = "gray", className, ...props }: BadgeProps) {
         toneStyles[tone],
         className
       )}
+      data-admin-tone={tone}
       {...props}
     />
   );

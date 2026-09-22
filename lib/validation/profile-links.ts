@@ -4,7 +4,15 @@ import { PHONE_PATTERN, optionalText } from "@/lib/validation/shared";
 import { LINK_TYPE_META } from "@/lib/linkTypes";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const URL_PATTERN = /^https?:\/\/.+/i;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A single flat schema (type + label + value + isActive) rather than a
@@ -46,7 +54,7 @@ export const profileLinkInputSchema = z
       });
     }
 
-    if (meta.valueKind === "url" && !URL_PATTERN.test(data.value)) {
+    if (meta.valueKind === "url" && !isHttpUrl(data.value)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["value"],

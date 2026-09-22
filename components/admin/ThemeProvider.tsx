@@ -87,7 +87,7 @@ export function AdminThemeProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <AdminThemeContext.Provider value={value}>
-      <div data-admin-theme={resolved} className="min-h-screen bg-[var(--admin-bg)]">
+      <div data-admin-theme={resolved} className="admin-theme-scope min-h-screen bg-[var(--admin-bg)] text-[var(--admin-text)]">
         {children}
       </div>
     </AdminThemeContext.Provider>

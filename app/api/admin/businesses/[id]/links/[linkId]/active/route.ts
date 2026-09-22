@@ -4,6 +4,7 @@ import { setActiveSchema } from "@/lib/validation/profile-links";
 import {
   setProfileLinkActive,
   OrganizationNotFoundError,
+  ProfileLinkConflictError,
   ProfileLinkNotFoundError,
 } from "@/lib/services/profile-links";
 
@@ -31,6 +32,9 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof OrganizationNotFoundError || error instanceof ProfileLinkNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof ProfileLinkConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error(error);
     return NextResponse.json(

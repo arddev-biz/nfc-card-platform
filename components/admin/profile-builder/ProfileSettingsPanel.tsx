@@ -12,11 +12,15 @@ interface DraftProfileFields {
   displayName: string;
   bio: string;
   phone: string;
+  email: string;
+  whatsapp: string;
+  website: string;
   address: string;
   googleMapsUrl: string;
 }
 
 interface ProfileSettingsPanelProps {
+  v2Mode?: boolean;
   organizationId: string;
   selectedKey: ProfileBlockKey | "HEADER" | null;
   draft: DraftProfileFields;
@@ -33,6 +37,7 @@ interface ProfileSettingsPanelProps {
 }
 
 export function ProfileSettingsPanel({
+  v2Mode = false,
   organizationId,
   selectedKey,
   draft,
@@ -47,7 +52,7 @@ export function ProfileSettingsPanel({
   isMenuEnabled,
   menu,
 }: ProfileSettingsPanelProps) {
-  if (!selectedKey) {
+  if (!selectedKey && !v2Mode) {
     return (
       <p className="text-sm text-[var(--admin-text-secondary)]">
         Select a section on the left to edit it.
@@ -55,13 +60,13 @@ export function ProfileSettingsPanel({
     );
   }
 
-  const title = selectedKey === "HEADER" ? "Header" : BLOCK_REGISTRY[selectedKey].label;
+  const title = selectedKey === "HEADER" ? "Header" : selectedKey ? BLOCK_REGISTRY[selectedKey].label : "";
 
   return (
     <div>
-      <h3 className="mb-4 text-sm font-semibold text-[var(--admin-text)]">{title}</h3>
+      {title&&(!v2Mode||["HEADER","BIO","MENU"].includes(selectedKey??""))&&<h3 className="mb-4 text-sm font-semibold text-[var(--admin-text)]">{title}</h3>}
 
-      {selectedKey === "HEADER" && (
+      <div hidden={selectedKey !== "HEADER"}>
         <HeaderEditor
           organizationId={organizationId}
           draft={draft}
@@ -71,9 +76,9 @@ export function ProfileSettingsPanel({
           coverImageUrl={coverImageUrl}
           onImagesChange={onImagesChange}
         />
-      )}
-      {selectedKey === "BIO" && <BioEditor draft={draft} onChange={onChangeDraft} onSave={onSaveDraft} />}
-      {selectedKey === "CONTACT" && (
+      </div>
+      <div hidden={selectedKey !== "BIO"}><BioEditor draft={draft} onChange={onChangeDraft} onSave={onSaveDraft} /></div>
+      {!v2Mode && <div hidden={selectedKey !== "CONTACT"}>
         <ContactEditor
           draft={draft}
           onChange={onChangeDraft}
@@ -81,11 +86,11 @@ export function ProfileSettingsPanel({
           hasWhatsappLink={links.some((l) => l.type === "WHATSAPP")}
           onOpenLinks={() => onSelectBlock("LINKS")}
         />
-      )}
-      {selectedKey === "LOCATION" && (
+      </div>}
+      {!v2Mode && <div hidden={selectedKey !== "LOCATION"}>
         <LocationEditor draft={draft} onChange={onChangeDraft} onSave={onSaveDraft} />
-      )}
-      {selectedKey === "REVIEWS" && (
+      </div>}
+      {!v2Mode && <div hidden={selectedKey !== "REVIEWS"}>
         <ReviewsEditor
           organizationId={organizationId}
           reviewsLink={links.find((l) => l.type === "GOOGLE_REVIEWS")}
@@ -97,28 +102,23 @@ export function ProfileSettingsPanel({
             )
           }
         />
-      )}
-      {selectedKey === "MENU" && (
+      </div>}
+      <div hidden={selectedKey !== "MENU"}>
         <MenuEditor organizationId={organizationId} isEnabled={isMenuEnabled} menu={menu} />
-      )}
-      {selectedKey === "LINKS" && (
+      </div>
+      {!v2Mode && <div hidden={selectedKey !== "LINKS"}>
         <LinksEditor
           organizationId={organizationId}
-          links={links.filter((l) => !["PHONE", "WHATSAPP", "GOOGLE_MAPS", "GOOGLE_REVIEWS"].includes(l.type))}
-          onChange={(updatedSecondary) => {
-            const kept = links.filter((l) =>
-              ["PHONE", "WHATSAPP", "GOOGLE_MAPS", "GOOGLE_REVIEWS"].includes(l.type)
-            );
-            onChangeLinks([...kept, ...updatedSecondary]);
-          }}
+          links={links}
+          onChange={onChangeLinks}
         />
-      )}
-      {selectedKey === "BUSINESS_INFO" && (
+      </div>}
+      {!v2Mode && <div hidden={selectedKey !== "BUSINESS_INFO"}>
         <p className="text-sm text-[var(--admin-text-secondary)]">
-          Shows your address, phone, and website as plain text. Edit those in the Location and
-          Contact sections above.
+          Shows your address, phone, and legacy website details as plain text. Edit address in
+          Location, phone in Contact, and the canonical website in Links.
         </p>
-      )}
+      </div>}
     </div>
   );
 }

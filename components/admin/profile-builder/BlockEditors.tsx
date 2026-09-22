@@ -1,4 +1,5 @@
 "use client";
+import {useSaveCoordinator} from "./SaveCoordinator";
 
 import { useState } from "react";
 import { Input } from "@/components/ui/Input";
@@ -11,6 +12,9 @@ interface DraftProfile {
   displayName: string;
   bio: string;
   phone: string;
+  email: string;
+  whatsapp: string;
+  website: string;
   address: string;
   googleMapsUrl: string;
 }
@@ -64,6 +68,7 @@ export function HeaderEditor({
   coverImageUrl: string | null;
   onImagesChange: (fields: { logoUrl?: string | null; coverImageUrl?: string | null }) => void;
 }) {
+  const coordinated=useSaveCoordinator();
   const { save, isSaving } = useBlockSave(onSave);
   const { showToast } = useToast();
   const [busyKind, setBusyKind] = useState<"logo" | "cover" | null>(null);
@@ -137,13 +142,13 @@ export function HeaderEditor({
       <Field label="Display name">
         <Input value={draft.displayName} onChange={(e) => onChange({ displayName: e.target.value })} />
       </Field>
-      <Button
+      {!coordinated&&<Button
         type="button"
         disabled={isSaving}
         onClick={() => save({ displayName: draft.displayName })}
       >
         {isSaving ? "Saving…" : "Save"}
-      </Button>
+      </Button>}
     </div>
   );
 }
@@ -157,6 +162,7 @@ export function BioEditor({
   onChange: (fields: Partial<DraftProfile>) => void;
   onSave: SaveFieldsFn;
 }) {
+  const coordinated=useSaveCoordinator();
   const { save, isSaving } = useBlockSave(onSave);
 
   return (
@@ -169,9 +175,9 @@ export function BioEditor({
           placeholder="A short description shown under your business name."
         />
       </Field>
-      <Button type="button" disabled={isSaving} onClick={() => save({ bio: draft.bio })}>
+      {!coordinated&&<Button type="button" disabled={isSaving} onClick={() => save({ bio: draft.bio })}>
         {isSaving ? "Saving…" : "Save"}
-      </Button>
+      </Button>}
     </div>
   );
 }
@@ -189,6 +195,7 @@ export function ContactEditor({
   hasWhatsappLink: boolean;
   onOpenLinks: () => void;
 }) {
+  const coordinated=useSaveCoordinator();
   const { save, isSaving } = useBlockSave(onSave);
 
   return (
@@ -213,9 +220,34 @@ export function ContactEditor({
         </Button>
       </Field>
 
-      <Button type="button" disabled={isSaving} onClick={() => save({ phone: draft.phone })}>
+      <Field label="Email">
+        <Input
+          type="email"
+          value={draft.email}
+          onChange={(e) => onChange({ email: e.target.value })}
+          placeholder="hello@example.com"
+        />
+      </Field>
+
+      <fieldset className="space-y-3 rounded border p-3">
+        <legend>Legacy fallback contact data</legend>
+        <p className="text-xs">Active WhatsApp and Website links take precedence. These compatibility values can reappear when those links are disabled or removed. Clear them here if no fallback is wanted.</p>
+        <label className="block">Legacy WhatsApp
+          <Input type="tel" value={draft.whatsapp} onChange={(e) => onChange({ whatsapp: e.target.value })} />
+        </label>
+        <label className="block">Legacy website
+          <Input type="url" value={draft.website} onChange={(e) => onChange({ website: e.target.value })} />
+        </label>
+        <Button type="button" variant="secondary" onClick={onOpenLinks}>Manage canonical WhatsApp / Website links</Button>
+      </fieldset>
+
+      {!coordinated&&<Button
+        type="button"
+        disabled={isSaving}
+        onClick={() => save({ phone: draft.phone, email: draft.email, whatsapp: draft.whatsapp, website: draft.website })}
+      >
         {isSaving ? "Saving…" : "Save"}
-      </Button>
+      </Button>}
     </div>
   );
 }
@@ -229,6 +261,7 @@ export function LocationEditor({
   onChange: (fields: Partial<DraftProfile>) => void;
   onSave: SaveFieldsFn;
 }) {
+  const coordinated=useSaveCoordinator();
   const { save, isSaving } = useBlockSave(onSave);
 
   return (
@@ -246,13 +279,13 @@ export function LocationEditor({
           Powers the Directions button. Leave blank to hide it.
         </p>
       </Field>
-      <Button
+      {!coordinated&&<Button
         type="button"
         disabled={isSaving}
         onClick={() => save({ address: draft.address, googleMapsUrl: draft.googleMapsUrl })}
       >
         {isSaving ? "Saving…" : "Save"}
-      </Button>
+      </Button>}
     </div>
   );
 }

@@ -1,5 +1,15 @@
 import type { CSSProperties } from "react";
-import type { BackgroundType, BackgroundGradientPreset, BackgroundMode } from "@prisma/client";
+
+export type BackgroundType = "SOLID" | "GRADIENT" | "IMAGE";
+export type BackgroundGradientPreset =
+  | "INDIGO"
+  | "PURPLE"
+  | "BLUE"
+  | "SUNSET"
+  | "EMERALD"
+  | "ROSE"
+  | "DARK";
+export type BackgroundMode = "LIGHT" | "DARK";
 
 export const GRADIENT_PRESETS: Record<BackgroundGradientPreset, { label: string; css: string }> = {
   INDIGO: { label: "Indigo", css: "linear-gradient(135deg, #4F46E5, #818CF8)" },
@@ -20,6 +30,22 @@ export const GRADIENT_PRESET_ORDER: BackgroundGradientPreset[] = [
   "ROSE",
   "DARK",
 ];
+
+export function normalizeBackgroundType(value: string | null): BackgroundType {
+  return value === "GRADIENT" || value === "IMAGE" ? value : "SOLID";
+}
+
+export function normalizeBackgroundGradient(
+  value: string | null
+): BackgroundGradientPreset | null {
+  return value && Object.prototype.hasOwnProperty.call(GRADIENT_PRESETS, value)
+    ? (value as BackgroundGradientPreset)
+    : null;
+}
+
+export function normalizeBackgroundMode(value: string | null): BackgroundMode {
+  return value === "DARK" ? "DARK" : "LIGHT";
+}
 
 const LEGACY_BACKGROUND_COLOR = "#F7F7F8";
 

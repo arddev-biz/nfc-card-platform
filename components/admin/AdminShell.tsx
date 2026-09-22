@@ -1,5 +1,6 @@
 "use client";
 
+import { PLATFORM_NAME } from "@/lib/platform";
 import { useState } from "react";
 import Link from "next/link";
 import { SidebarNav } from "@/components/admin/Sidebar";
@@ -14,7 +15,7 @@ function Brand() {
       <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--admin-accent)] text-xs font-bold text-[var(--admin-accent-text)]">
         N
       </span>
-      <span className="text-sm font-semibold text-[var(--admin-text)]">NFC Card Platform</span>
+      <span className="text-sm font-semibold text-[var(--admin-text)]">{PLATFORM_NAME}</span>
     </Link>
   );
 }
@@ -40,7 +41,7 @@ export function AdminShell({ email, children }: { email: string; children: React
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-[var(--admin-bg)]">
+      <div className="admin-shell flex min-h-screen bg-[var(--admin-bg)] text-[var(--admin-text)]">
         {/* Desktop sidebar — persistent, per PC-first requirement */}
         <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--admin-border)] bg-[var(--admin-sidebar)] lg:flex">
           <Brand />
@@ -89,7 +90,7 @@ export function AdminShell({ email, children }: { email: string; children: React
           </header>
 
           <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-            <div className="mx-auto w-full max-w-6xl">{children}</div>
+            <div className="admin-content mx-auto w-full max-w-6xl">{children}</div>
           </main>
         </div>
       </div>

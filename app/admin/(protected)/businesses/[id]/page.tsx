@@ -1,103 +1,90 @@
+import { SubscriptionPlanControl } from "@/components/admin/SubscriptionPlanControl";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrganizationById, listOrganizations } from "@/lib/services/organizations";
+import { getBuilderProfileData, getResolvedBlockLayout } from "@/lib/services/profile-blocks";
 import { listProfileLinks } from "@/lib/services/profile-links";
 import { listCardsForOrganization } from "@/lib/services/nfc-cards";
+import { isMenuAvailableForOrganization } from "@/lib/services/public-menu";
 import { getMenuForOrganization } from "@/lib/services/menus";
-import { BusinessForm, type BusinessFormValues } from "@/components/admin/BusinessForm";
+import { buildProfileViewModel } from "@/lib/profileView";
+import { computeAvailabilityFromViewModel } from "@/lib/blocks/availability";
+import { ProfileBuilderShell } from "@/components/admin/ProfileBuilderShell";
+import { BusinessAdminForm } from "@/components/admin/BusinessAdminForm";
 import { BusinessStatusActions } from "@/components/admin/BusinessStatusActions";
-import { ProfileLinksManager } from "@/components/admin/ProfileLinksManager";
 import { NfcCardsManager } from "@/components/admin/NfcCardsManager";
-import { MenuManager } from "@/components/admin/MenuManager";
-import { BusinessImagesManager } from "@/components/admin/BusinessImagesManager";
-import { BusinessSubNav } from "@/components/admin/BusinessSubNav";
 import { Badge } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { formatDate, organizationStatusTone, subscriptionStatusTone } from "@/lib/format";
 
-export default async function EditBusinessPage({
+export default async function BusinessEditorPage({
   params,
   searchParams,
 }: {
   params: { id: string };
   searchParams: { created?: string };
 }) {
-  const organization = await getOrganizationById(params.id);
+  const [organization, business] = await Promise.all([getOrganizationById(params.id), getBuilderProfileData(params.id)]);
 
-  if (!organization || !organization.profile) {
+  if (!organization || !organization.profile || !business) {
     notFound();
   }
 
-  const profile = organization.profile;
+  const [links, cards, menuAvailable, menuState, allOrganizations] = await Promise.all([
+    listProfileLinks(organization.id),
+    listCardsForOrganization(organization.id),
+    isMenuAvailableForOrganization(organization.id),
+    getMenuForOrganization(organization.id),
+    listOrganizations(),
+  ]);
+  const viewModel = buildProfileViewModel(business);
+  const availability = computeAvailabilityFromViewModel(business, viewModel, menuAvailable);
+  const blocks = business.v2?.version === 2 ? [] : await getResolvedBlockLayout(organization.id, availability);
   const latestSubscription = organization.subscriptions[0] ?? null;
-  const links = await listProfileLinks(organization.id);
-  const cards = await listCardsForOrganization(organization.id);
-  const { isEnabled: isMenuEnabled, menu } = await getMenuForOrganization(organization.id);
-  const allOrganizations = await listOrganizations();
   const reassignTargets = allOrganizations
-    .filter((org) => org.id !== organization.id && org.status !== "ARCHIVED")
-    .map((org) => ({ id: org.id, name: org.name }));
+    .filter((candidate) => candidate.id !== organization.id && candidate.status !== "ARCHIVED")
+    .map((candidate) => ({ id: candidate.id, name: candidate.name }));
 
-  const initialValues: Partial<BusinessFormValues> = {
-    businessName: organization.name,
-    slug: organization.slug,
-    businessType: organization.businessType ?? "",
-    bio: profile.bio ?? "",
-    phone: profile.phone ?? "",
-    whatsapp: profile.whatsapp ?? "",
-    email: profile.email ?? "",
-    website: profile.website ?? "",
-    address: profile.address ?? "",
-    googleMapsUrl: profile.googleMapsUrl ?? "",
-    displayName: profile.displayName,
-    themeColor: profile.themeColor ?? "",
-    backgroundType: profile.backgroundType ?? "",
-    backgroundColor: profile.backgroundColor ?? "",
-    backgroundGradient: profile.backgroundGradient ?? "",
-    backgroundMode: profile.backgroundMode ?? "",
-  };
+  const adminPanel = (
+    <>
+      <section className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">
+          Business identity
+        </h2>
+        <BusinessAdminForm
+          organizationId={organization.id}
+          initialValues={{
+            businessName: organization.name,
+            slug: organization.slug,
+            businessType: organization.businessType ?? "",
+          }}
+        />
+      </section>
 
-  return (
-    <div className="max-w-2xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/admin/businesses" className="text-sm text-[var(--admin-text-secondary)] hover:underline">
-            &larr; Back to businesses
-          </Link>
-          <h1 className="mt-1 text-xl font-semibold text-[var(--admin-text)]">{organization.name}</h1>
-          {organization.status === "ACTIVE" ? (
-            <Link
-              href={`/${organization.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-[var(--admin-text-secondary)] hover:underline"
-            >
-              View public profile ↗
-            </Link>
-          ) : (
-            <p className="text-sm text-[var(--admin-text-secondary)]">
-              Public profile hidden while {organization.status.toLowerCase()}
+      <section className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">
+              Business status
+            </h2>
+            <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">
+              Archiving preserves all business data.
             </p>
-          )}
+          </div>
+          <BusinessStatusActions
+            organizationId={organization.id}
+            currentStatus={organization.status}
+          />
         </div>
-        <Badge tone={organizationStatusTone(organization.status)}>{organization.status}</Badge>
-      </div>
+      </section>
 
-      <div className="mt-4">
-        <BusinessSubNav organizationId={organization.id} active="details" />
-      </div>
-
-      {searchParams.created === "1" && (
-        <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-          Business created successfully.
-        </p>
-      )}
-
-      <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
+      <section className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">
           Service / Subscription
         </h2>
+        {latestSubscription && <SubscriptionPlanControl organizationId={organization.id} initialPlan={latestSubscription.plan}/>}
         {latestSubscription ? (
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
             <div>
               <dt className="text-[var(--admin-text-secondary)]">Plan</dt>
               <dd className="font-medium text-[var(--admin-text)]">{latestSubscription.plan}</dd>
@@ -124,54 +111,66 @@ export default async function EditBusinessPage({
             </div>
           </dl>
         ) : (
-          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">No subscription record found.</p>
-        )}
-      </div>
-
-      <div className="mt-6 flex items-center justify-between rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
-        <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">
-            Business Status
-          </h2>
-          <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">
-            Archiving does not delete any data — it can be restored later.
+          <p className="mt-3 text-sm text-[var(--admin-text-secondary)]">
+            No subscription record found.
           </p>
-        </div>
-        <BusinessStatusActions organizationId={organization.id} currentStatus={organization.status} />
-      </div>
+        )}
+      </section>
 
-      <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
-        <ProfileLinksManager organizationId={organization.id} links={links} />
-      </div>
-
-      <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
+      <section className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-5">
         <NfcCardsManager
           organizationId={organization.id}
           cards={cards}
           reassignTargets={reassignTargets}
         />
-      </div>
+      </section>
+    </>
+  );
 
-      <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
-        <MenuManager organizationId={organization.id} isEnabled={isMenuEnabled} menu={menu} />
-      </div>
+  return (
+    <div className="space-y-6">
+      <Link href="/admin/businesses" className="text-sm hover:underline">← Back to Businesses</Link>
+      <PageHeader
+        title={organization.name}
+        description="Manage the public profile, design, layout, links, menu, and administrative details."
+        actions={
+          <div className="flex items-center gap-3">
+            <Badge tone={organizationStatusTone(organization.status)}>{organization.status}</Badge>
+            {organization.status === "ACTIVE" && (
+              <Link
+                href={`/${organization.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[var(--admin-text-secondary)] hover:underline"
+              >
+                View public profile ↗
+              </Link>
+            )}
+          </div>
+        }
+      />
 
-      <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
-        <BusinessImagesManager
-          organizationId={organization.id}
-          logoUrl={profile.logoUrl}
-          coverImageUrl={profile.coverImageUrl}
-        />
-      </div>
+      {searchParams.created === "1" && (
+        <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+          Business created successfully.
+        </p>
+      )}
 
-      <div className="mt-6 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-6">
-        <BusinessForm
-          mode="edit"
-          organizationId={organization.id}
-          initialValues={initialValues}
-          backgroundImageUrl={profile.backgroundImageUrl}
-        />
-      </div>
+      {organization.status !== "ACTIVE" && (
+        <p className="text-sm">Public profile hidden while {organization.status.toLowerCase()}.</p>
+      )}
+
+      <ProfileBuilderShell
+        organizationId={organization.id}
+        businessSlug={organization.slug}
+        business={business}
+        initialBlocks={blocks}
+        initialLinks={links}
+        menuAvailable={menuAvailable}
+        isMenuEnabled={menuState.isEnabled}
+        menu={menuState.menu}
+        adminPanel={adminPanel}
+      />
     </div>
   );
 }
