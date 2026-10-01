@@ -1,6 +1,14 @@
 import "server-only";
 import { put, del } from "@vercel/blob";
 
+function publicStoreOptions() {
+  const storeId = process.env.PUBLIC__STORE_ID?.trim();
+  if (!storeId && process.env.VERCEL) {
+    throw new Error("Public Blob store binding is missing.");
+  }
+  return storeId ? { storeId } : {};
+}
+
 export async function uploadImage(
   buffer: Buffer,
   pathname: string,
@@ -10,6 +18,7 @@ export async function uploadImage(
     access: "public",
     contentType,
     addRandomSuffix: true,
+    ...publicStoreOptions(),
   });
   return blob.url;
 }
@@ -21,7 +30,7 @@ export async function uploadImage(
  */
 export async function deleteImage(url: string): Promise<void> {
   try {
-    await del(url);
+    await del(url, publicStoreOptions());
   } catch (error) {
     console.error("Failed to delete blob:", error);
   }
