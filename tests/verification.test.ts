@@ -1,12 +1,22 @@
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import { NextRequest } from "next/server";
-const m=vi.hoisted(()=>({admin:vi.fn(),update:vi.fn()}));
+const m=vi.hoisted(()=>({admin:vi.fn(),update:vi.fn(),find:vi.fn()}));
 vi.mock("@/lib/auth/session",()=>({getAdminApiUser:m.admin}));
-vi.mock("@/lib/db",()=>({db:{businessProfile:{update:m.update}}}));
+vi.mock("@/lib/db",()=>({db:{businessProfile:{update:m.update,findUniqueOrThrow:m.find}}}));
 import { PATCH } from "@/app/api/admin/businesses/[id]/verification/route";
 const request=(body:unknown)=>new NextRequest("http://localhost/api/admin/businesses/test/verification",{method:"PATCH",body:JSON.stringify(body)});
 beforeEach(()=>{vi.resetAllMocks();m.admin.mockResolvedValue({role:"SUPER_ADMIN"});m.update.mockImplementation(async({data})=>data);});
 describe("Super Admin verification API to persistence",()=>{
+  it("saves the beta alternative while preserving existing design and content",async()=>{
+    m.find.mockResolvedValue({theme:"CLASSIC",designConfig:{theme:"CLASSIC",visual:{version:1,canvas:{color:"#123456"},badge:{size:30}}}});
+    const response=await PATCH(request({isVerified:true,verificationBadge:"BETA"}),{params:{id:"test"}});
+    expect(response.status).toBe(200);
+    const data=m.update.mock.calls[0][0].data;
+    expect(data.designConfig.visual.canvas).toEqual({color:"#123456"});
+    expect(data.designConfig.visual.badge).toEqual({size:30,variant:"BETA"});
+    expect(data).not.toHaveProperty("displayName");
+    expect((await response.json()).verification.verificationBadge).toBe("BETA");
+  });
   it("persists a custom tooltip and clears it without touching content",async()=>{
     await PATCH(request({isVerified:true,verificationTooltip:"Reviewed manually"}),{params:{id:"test"}});
     expect(m.update.mock.calls[0][0].data.verificationTooltip).toBe("Reviewed manually");

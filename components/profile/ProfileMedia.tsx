@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { LinkType } from "@prisma/client";
 import {SemanticIcon} from "./SemanticIcon";
 import { mediaConfig, type V2Image } from "@/lib/profile-v2";
@@ -15,6 +15,7 @@ export function ProfileLinkIcon({ type, mode, url, network, size = 24, iconSet =
 export function ProfileMedia({ images, config, carousel = false }: { images: V2Image[]; config: unknown; carousel?: boolean }) {
   const result = mediaConfig.safeParse(config);
   const c = result.success ? result.data : mediaConfig.parse({});
+  carousel=carousel&&(!c.media?.layout||c.media.layout==="CAROUSEL");
   const track = useRef<HTMLDivElement>(null);
   const pauseUntil = useRef(0);
   const drag = useRef<{ x:number; scroll:number; moved:boolean } | null>(null);
@@ -70,6 +71,11 @@ export function ProfileMedia({ images, config, carousel = false }: { images: V2I
     return () => { cancelAnimationFrame(frame); observer.disconnect(); };
   }, [carousel, c.autoplay, c.mode, c.speed, c.loop, reduced, stopped, images.length]);
   const ratio = { AUTO: undefined, SQUARE: "1 / 1", PORTRAIT: "3 / 4", LANDSCAPE: "16 / 9" }[c.ratio];
+  const imageStyle:CSSProperties={aspectRatio:ratio,borderRadius:c.media?.radius,objectFit:c.media?.fit==="CONTAIN"?"contain":"cover",objectPosition:`${c.media?.focalX??50}% ${c.media?.focalY??50}%`};
+  if(c.media?.layout&&c.media.layout!=="CAROUSEL")return <div className="visual-media" data-media-layout={c.media.layout} style={{"--media-columns":c.media.columns??3,"--media-mobile-columns":c.media.mobileColumns??1,"--media-gap":`${c.media.gap??12}px`} as CSSProperties}>{images.map(m=>{
+    const picture=<Image src={m.url} alt={m.alt} width={600} height={600} sizes="(max-width: 560px) 90vw, 320px" style={imageStyle} className="h-auto w-full"/>;
+    return <figure key={m.id}>{m.destinationUrl?<a href={m.destinationUrl} target="_blank" rel="noopener noreferrer">{picture}</a>:picture}{m.caption&&<figcaption className="p-2 text-sm">{m.caption}</figcaption>}</figure>;
+  })}</div>;
   return <div className="min-w-0" role={carousel ? "region" : undefined} aria-label={carousel ? "Image carousel" : undefined}
     onPointerEnter={() => { hovered.current=true; interacting.current = true; pause(); }} onPointerLeave={() => { hovered.current=false; interacting.current = focused.current || !!drag.current; pause(); }}
     onPointerDown={() => { interacting.current = true; pause(); }} onPointerUp={() => { interacting.current = hovered.current || focused.current; pause(); }}
@@ -86,7 +92,7 @@ export function ProfileMedia({ images, config, carousel = false }: { images: V2I
       onScroll={() => { const e = track.current; if (e?.clientWidth && images.length) setIndex(Math.round(e.scrollLeft / e.clientWidth) % images.length); }}
       onWheel={pause} onKeyDown={pause} tabIndex={carousel ? 0 : undefined}>
       {(carousel && c.mode === "CONTINUOUS" && c.loop && images.length > 1 ? [...images, ...images] : images).map((m,n) => {
-        const picture = <Image src={m.url} alt={m.alt} width={600} height={600} sizes="(max-width: 480px) 90vw, 400px" style={{ aspectRatio: ratio }} className="h-auto w-full rounded-2xl object-cover" />;
+        const picture = <Image src={m.url} alt={m.alt} width={600} height={600} sizes="(max-width: 480px) 90vw, 400px" style={imageStyle} className="h-auto w-full rounded-2xl object-cover" />;
         return <figure key={m.id+n} aria-hidden={n >= images.length ? true : undefined} className="w-full shrink-0 snap-start">
           {m.destinationUrl && n < images.length ? <a href={m.destinationUrl} target="_blank" rel="noopener noreferrer">{picture}</a> : picture}
           {m.caption && <figcaption className="p-2 text-sm">{m.caption}</figcaption>}

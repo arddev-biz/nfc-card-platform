@@ -8,7 +8,9 @@ import { useMemo, useState, useRef } from "react";
 import type { V2Command, V2Data, V2Section, V2Link } from "@/lib/profile-v2";
 import { V2Structure, V2SectionEditor, V2LinksEditor, BusinessInfoEditor } from "@/components/admin/profile-builder/V2Editor";
 import { V2Upgrade } from "@/components/admin/profile-builder/V2Upgrade";
-import { GlobalDesignControls,FooterEditor } from "@/components/admin/profile-builder/GlobalDesignControls";
+import {ProfilePreviewFrame} from "@/components/admin/profile-builder/ProfilePreviewFrame";
+import { GlobalDesignControls } from "@/components/admin/profile-builder/GlobalDesignControls";
+import {HeaderContentControls,HeaderVisualControls} from "./profile-builder/VisualControls";
 import type { ProfileBlockKey } from "@prisma/client";
 import { ProfileRenderer } from "@/components/profile/ProfileRenderer";
 import type { PublicBusinessProfile } from "@/lib/services/public-profile";
@@ -24,8 +26,13 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { BuilderV3 } from "./profile-builder/BuilderV3";
+import { UploadActivityProvider } from "./profile-builder/UploadActivity";
+import type {CustomTheme} from "@/lib/custom-themes";
 
 interface ProfileBuilderShellProps {
+  customThemes?:CustomTheme[];
+  isSuperAdmin?:boolean;
   organizationId: string;
   businessSlug: string;
   business: PublicBusinessProfile;
@@ -33,11 +40,12 @@ interface ProfileBuilderShellProps {
   menuAvailable: boolean;
   isMenuEnabled: boolean;
   menu: MenuWithContent | null;
-  adminPanel: React.ReactNode;
+  /** Kept for backward-compatible callers; administration is intentionally rendered outside the builder. */
+  adminPanel?: React.ReactNode;
   initialLinks?: LinkLike[];
 }
 
-type EditorTab = "profile" | "design" | "admin" | "footer";
+type EditorTab = "profile" | "design";
 type MobileView = "structure" | "edit" | "preview";
 type SelectedKey = ProfileBlockKey | "HEADER" | null;
 
@@ -119,7 +127,7 @@ function reconcileDesignDraft(
   };
 }
 
-export function ProfileBuilderShell(props:ProfileBuilderShellProps){return props.business.v2?.version===2?<SaveCoordinator><DisclosureScope><BuilderContent {...props}/></DisclosureScope></SaveCoordinator>:<BuilderContent {...props}/>;}
+export function ProfileBuilderShell(props:ProfileBuilderShellProps){return props.business.v2?.version===2?<UploadActivityProvider><BuilderV3 customThemes={props.customThemes} isSuperAdmin={props.isSuperAdmin} organizationId={props.organizationId} businessSlug={props.businessSlug} business={props.business} menuAvailable={props.menuAvailable} isMenuEnabled={props.isMenuEnabled} menu={props.menu}/></UploadActivityProvider>:<BuilderContent {...props}/>;}
 function BuilderContent({
   organizationId,
   businessSlug,
@@ -128,7 +136,6 @@ function BuilderContent({
   menuAvailable,
   isMenuEnabled,
   menu,
-  adminPanel,
   initialLinks,
 }: ProfileBuilderShellProps) {
   const { showToast } = useToast();
@@ -143,7 +150,7 @@ function BuilderContent({
   const [sectionSettings,setSectionSettings] = useState(false);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   function previewSection(section: V2Section) {
-    setSaveStatus("Unsaved section settings — preview includes drafts");
+    setSaveStatus("Changes pending");
     setV2(current => current ? { ...current, sections: current.sections.map(s => s.id === section.id ? section : s) } : current);
   }
   async function mutateV2(command: V2Command): Promise<boolean> {
@@ -200,7 +207,7 @@ function BuilderContent({
         setDraft(current => ({ ...current, ...fields }));
         setPersistedDraft(current => ({ ...current, ...fields }));
       }
-      setSaveStatus("Saved V2 changes"); return true;
+      setSaveStatus("Saved"); return true;
     } catch (e) {
       setSaveStatus(e instanceof Error ? e.message : "Save failed. Draft is not published."); return false;
     } finally { v2Lock.current = false; setV2Busy(false); }
@@ -461,12 +468,12 @@ function BuilderContent({
   }
 
   const anchorClass = (selected:boolean) => cn(
-    "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left hover:border-[var(--admin-accent)] hover:bg-[var(--admin-accent)]/10",
+    "flex w-full min-h-11 items-center justify-between rounded-lg border px-3 py-2 text-left hover:border-[var(--admin-accent)] hover:bg-[var(--admin-accent)]/10",
     selected ? "border-[var(--admin-accent)] bg-[var(--admin-accent)]/10" : "border-[var(--admin-border)] bg-[var(--admin-card)]"
   );
   const structurePanel = (
-          <nav aria-label="Editor sections" className="space-y-2">
-            <h2 className="text-sm font-semibold">Profile / Layout</h2>
+          <nav aria-label="Profile content" className="space-y-2">
+            <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">Content</h2><button type="button" aria-pressed={tab==="design"} className={cn("rounded-lg px-3 py-2 text-sm font-medium",tab==="design"?"bg-[var(--admin-accent)] text-[var(--admin-accent-text)]":"bg-[var(--admin-card)] hover:bg-[var(--admin-hover)]")} onClick={()=>{setTab("design");setMobileView("edit");}}>Design</button></div>
             <button
               type="button"
               onClick={() => selectBlock("HEADER")}
@@ -490,28 +497,23 @@ function BuilderContent({
               onMove={handleMove}
               onToggleVisible={handleToggleVisible}
             />}
-            {v2?.version===2&&<button type="button" data-structure-anchor="FOOTER" aria-pressed={tab==="footer"} className={anchorClass(tab==="footer")} onClick={()=>{setTab("footer");setMobileView("edit");}}><span className="flex-1 font-medium">Footer</span><Badge tone="gray">Locked</Badge></button>}
-            {(["design","admin"] as EditorTab[]).map((section) => (
-              <Button key={section} type="button" variant={tab === section ? "primary" : "secondary"}
-                className="w-full capitalize" onClick={() => {setTab(section);setMobileView("edit");}}>{section}</Button>
-            ))}
           </nav>
   );
 
   const editorPanel = (
     <div className="min-w-0 space-y-4">
-      <p role="status">{saveStatus}</p>
+      {/failed|error|stale|unable/i.test(saveStatus)&&<p role="alert" className="rounded-lg bg-[var(--admin-danger-bg)] p-3 text-sm text-[var(--admin-danger-text)]">{saveStatus}</p>}
       {Object.entries(fieldErrors).map(([field, errors]) => (
         <p role="alert" key={field} className="text-sm text-red-600">{field}: {errors.join(" ")}</p>
       ))}
       {(JSON.stringify(draft) !== JSON.stringify(persistedDraft) || JSON.stringify(designDraft) !== JSON.stringify(persistedDesignDraft)) && (
-        <p className="text-sm">Unsaved profile/design changes. Preview is not published until saved.</p>
+        <p className="text-sm">{v2?"Preview includes your latest edits. Changes publish when autosave completes.":"Unsaved changes. Save to publish."}</p>
       )}
-      {Object.keys(linkPreviews).length>0 && <p className="text-sm">Unsaved link changes. Preview includes drafts; save each edited link to publish.</p>}
-      {v2 && JSON.stringify(v2) !== JSON.stringify(savedV2.current) && <p className="text-sm">Unsaved section/item settings. Preview includes drafts; save each edited section/item to publish.</p>}
+      {v2&&<h2 className="text-xl font-semibold">{tab==="design"?"Profile design":selectedSection?v2.sections.find(s=>s.id===selectedSection)?.internalName:"Header"}</h2>}
+      {v2&&tab==="profile"&&(selectedSection||selectedKey==="HEADER")&&<div className="inline-flex rounded-lg bg-[var(--admin-secondary)] p-1" aria-label="Section editing"><button type="button" aria-pressed={!sectionSettings} className="rounded-md px-4 py-2 text-sm font-medium aria-pressed:bg-[var(--admin-card)] aria-pressed:shadow-sm" onClick={()=>setSectionSettings(false)}>Content</button><button type="button" aria-pressed={sectionSettings} className="rounded-md px-4 py-2 text-sm font-medium aria-pressed:bg-[var(--admin-card)] aria-pressed:shadow-sm" onClick={()=>setSectionSettings(true)}>Appearance</button></div>}
       <div hidden={tab !== "profile"} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-4">
-            {selectedKey === "HEADER" && <Button type="button" variant="secondary" onClick={() => handleChangeDraft({ displayName: business.name })}>Use business name (save to apply)</Button>}
-            <ProfileSettingsPanel
+            {selectedKey === "HEADER" && !sectionSettings && <Button type="button" variant="secondary" onClick={() => handleChangeDraft({ displayName: business.name })}>Use business name</Button>}
+            <div hidden={sectionSettings}><ProfileSettingsPanel
               v2Mode={v2?.version === 2}
               organizationId={organizationId}
               selectedKey={selectedKey}
@@ -526,21 +528,20 @@ function BuilderContent({
               onSelectBlock={selectBlock}
               isMenuEnabled={isMenuEnabled}
               menu={menu}
-            />
+            /></div>
+            {v2&&selectedKey==="HEADER"&&!sectionSettings&&<HeaderContentControls value={resolveProfileDesign(v2.design,v2.theme)} onChange={design=>setV2({...v2,design})}/>}
+            {v2&&selectedKey==="HEADER"&&sectionSettings&&<HeaderVisualControls value={resolveProfileDesign(v2.design,v2.theme)} onChange={design=>setV2({...v2,design})}/>}
             {v2?.version === 2 && v2.sections.map(section => <div key={section.id} hidden={selectedSection !== section.id} className="space-y-5">
               {section.singletonKey === "BUSINESS_INFO" && <div hidden={sectionSettings}><BusinessInfoEditor business={{...liveBusiness,profile:{...liveBusiness.profile,...persistedDraft},v2:savedV2.current}} mutate={mutateV2} onPreview={fields => {
                 setInfoPreview(fields); handleChangeDraft(fields);
               }} /></div>}
               <V2SectionEditor onCancelSettings={()=>{const saved=savedV2.current?.sections.find(s=>s.id===section.id);if(saved)previewSection({...saved,items:section.items});}} persistedSection={savedV2.current?.sections.find(s=>s.id===section.id)} settingsOnly={sectionSettings} onCancel={id=>{const saved=savedV2.current?.sections.find(s=>s.id===section.id)?.items.find(i=>i.id===id);if(saved)previewSection({...section,items:section.items.map(i=>i.id===id?saved:i)});}} section={section} organizationId={organizationId} data={v2} mutate={mutateV2} preview={previewSection} busy={v2Busy} />
-              {(section.singletonKey === "LINKS" || section.kind === "SOCIALS") && <div hidden={sectionSettings}><V2LinksEditor onPreview={(link,id)=>{setLinkPreviews(current=>{const next={...current};if(link)next[id]=link;else delete next[id];return next;});}} data={v2} sectionId={section.kind === "SOCIALS" ? section.id : null} organizationId={organizationId} mutate={mutateV2} busy={v2Busy} /></div>}
+              {(section.singletonKey === "LINKS" || section.kind === "SOCIALS") && <div hidden={sectionSettings}><V2LinksEditor onSectionPreview={previewSection} onPreview={(link,id)=>{setLinkPreviews(current=>{const next={...current};if(link)next[id]=link;else delete next[id];return next;});}} data={v2} sectionId={section.kind === "SOCIALS" ? section.id : null} organizationId={organizationId} mutate={mutateV2} busy={v2Busy} /></div>}
             </div>)}
-            {(!v2||selectedKey==="HEADER"||selectedKey==="BIO")&&<Button type="button" variant="secondary" onClick={() => {
-              setDraft(persistedDraft); setFieldErrors({}); setSaveStatus("Profile drafts reset to saved values");
-            }}>Reset unsaved profile changes</Button>}
       </div>
         <div hidden={tab !== "design"} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-4">
-          {v2?.version === 2 && <><GlobalDesignControls value={v2.design} theme={v2.theme} onChange={design=>{setV2({...v2,theme:design.theme,design});setSaveStatus("Unsaved profile style");}}/><SaveDomain dirty={JSON.stringify({...resolveProfileDesign(v2.design,v2.theme),footer:undefined})!==JSON.stringify({...resolveProfileDesign(savedV2.current?.design,savedV2.current?.theme),footer:undefined})} onSave={()=>v2.design?mutateV2({op:"design",data:{...v2.design,footer:savedV2.current?.design?.footer}}):Promise.resolve(true)}>Save profile style</SaveDomain></>}
-          <DesignPanel
+          {v2?.version === 2 && <><GlobalDesignControls value={v2.design} theme={v2.theme} primaryColor={designDraft.themeColor} onPrimaryColorChange={themeColor=>setDesignDraft(current=>({...current,themeColor}))} onChange={design=>{setV2({...v2,theme:design.theme,design});setSaveStatus("Unsaved profile style");}} backgroundImageControl={<DesignPanel
+            visualMode={v2?.version===2}
             accentEnabled={v2?.design?.accentEnabled!==false}
             organizationId={organizationId}
             draft={designDraft}
@@ -550,19 +551,21 @@ function BuilderContent({
             onBackgroundImageChange={(backgroundImageUrl) =>
               setImages((current) => ({ ...current, backgroundImageUrl }))
             }
-          />
-          <Button type="button" variant="secondary" onClick={() => {
-            setDesignDraft(persistedDesignDraft); setV2(current=>current?{...current,theme:savedV2.current?.theme??current.theme,design:{...savedV2.current?.design!,footer:current.design?.footer}}:current); setFieldErrors({}); setSaveStatus("Design reset to saved values");
-          }}>Reset unsaved design changes</Button>
+          />}/><SaveDomain dirty={JSON.stringify({...resolveProfileDesign(v2.design,v2.theme),footer:undefined})!==JSON.stringify({...resolveProfileDesign(savedV2.current?.design,savedV2.current?.theme),footer:undefined})} onSave={()=>v2.design?mutateV2({op:"design",data:{...v2.design,footer:savedV2.current?.design?.footer}}):Promise.resolve(true)}>Save profile style</SaveDomain></>}
+          {v2?.version !== 2 && <DesignPanel
+            organizationId={organizationId}
+            draft={designDraft}
+            onChange={(fields) => setDesignDraft((prev) => ({ ...prev, ...fields }))}
+            onSave={handleSaveDesign}
+            backgroundImageUrl={images.backgroundImageUrl}
+            onBackgroundImageChange={(backgroundImageUrl) => setImages((current) => ({ ...current, backgroundImageUrl }))}
+          />}
         </div>
-        {v2?.version===2&&<div hidden={tab!=="footer"} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-4 space-y-4"><FooterEditor role="SUPER_ADMIN" value={v2.design} theme={v2.theme} onChange={design=>{setV2({...v2,design});setSaveStatus("Unsaved footer");}}/><SaveDomain dirty={JSON.stringify(v2.design?.footer)!==JSON.stringify(savedV2.current?.design?.footer)} onSave={()=>mutateV2({op:"footer",data:v2.design?.footer??{hidden:false,text:""}})}>Save footer</SaveDomain><Button type="button" variant="secondary" onClick={()=>{if(savedV2.current)setV2(current=>current?{...current,design:{...current.design!,footer:savedV2.current?.design?.footer}}:current);}}>Cancel footer changes</Button></div>}
-        <div hidden={tab !== "admin"} className="space-y-6">{adminPanel}</div>
     </div>
   );
 
   const previewPanel = useMemo(() => (
-    <div className="builder-phone">
-      <div className="builder-phone-viewport">
+    <ProfilePreviewFrame>
         <ProfileRenderer
           preview
           business={liveBusiness}
@@ -571,8 +574,7 @@ function BuilderContent({
           menuAvailable={menuAvailable}
           slug={businessSlug}
         />
-      </div>
-    </div>
+    </ProfilePreviewFrame>
   ), [liveBusiness,viewModel,visibleBlocks,menuAvailable,businessSlug]);
 
   return (
@@ -610,7 +612,17 @@ function BuilderContent({
             "builder-preview"
           )}
         >
-          <section aria-label="Live preview" data-builder-region="preview">{previewPanel}</section>
+          <section aria-label="Live preview" data-builder-region="preview" onClickCapture={event=>{
+            if(!v2)return;
+            const target=event.target as HTMLElement;
+            if(!target.closest("[data-preview]"))return;
+            event.preventDefault();event.stopPropagation();
+            const sectionId=target.closest<HTMLElement>("[data-section-id]")?.dataset.sectionId;
+            if(sectionId){setSelectedSection(sectionId);const section=v2.sections.find(s=>s.id===sectionId);setSelectedKey(section?.singletonKey as SelectedKey);setSectionSettings(false);setTab("profile");}
+            else if(target.closest("header,.visual-hero,[data-profile-cover]"))selectBlock("HEADER");
+            else if(!target.closest("footer"))setTab("design");
+            setMobileView("edit");
+          }}>{previewPanel}</section>
         </div>
       </div>
     </div>

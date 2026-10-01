@@ -53,21 +53,19 @@ beforeEach(() => { vi.clearAllMocks(); vi.stubGlobal("fetch", fetchMock); });
 afterEach(() => { if (renderer) act(() => renderer.unmount()); vi.unstubAllGlobals(); });
 
 describe("unified Business Editor", () => {
-  it("keeps one of each editor and retains Bio/Admin/Links drafts across section and responsive selection", async () => {
+  it("keeps one of each profile editor and retains Bio/Links drafts across responsive selection", async () => {
     await mount();
     const bio = renderer.root.findByType(BioEditor);
-    const admin = renderer.root.findByType(BusinessAdminForm);
     await act(async () => bio.findByType("textarea").props.onChange({ target: { value: "Unsaved Bio" } }));
-    await act(async () => admin.findByProps({ id: "businessName" }).props.onChange({ target: { value: "Unsaved name" } }));
     await button(renderer.root.findByType(LinksEditor), "+ Add Link");
     await act(async () => renderer.root.findByProps({ id: "link-value" }).props.onChange({ target: { value: "https://draft.example" } }));
-    for (const label of ["design", "admin", "Preview", "Edit"]) await button(renderer.root, label);
+    for (const label of ["Design", "Preview", "Edit"]) await button(renderer.root, label);
     await act(async () => renderer.root.findByType(BlockStructureList).props.onSelect("BIO"));
     expect(renderer.root.findAllByType(ProfileSettingsPanel)).toHaveLength(1);
     expect(renderer.root.findAllByType(BioEditor)).toHaveLength(1);
     expect(renderer.root.findByType(BioEditor)).toBe(bio);
     expect(bio.findByType("textarea").props.value).toBe("Unsaved Bio");
-    expect(admin.findByProps({ id: "businessName" }).props.value).toBe("Unsaved name");
+    expect(renderer.root.findAllByType(BusinessAdminForm)).toHaveLength(0);
     expect(renderer.root.findByProps({ id: "link-value" }).props.value).toBe("https://draft.example");
     expect(renderer.root.findAllByType(ProfileRenderer)).toHaveLength(1);
   });
@@ -80,8 +78,7 @@ describe("unified Business Editor", () => {
     expect(design.findAllByProps({ type: "file" })).toHaveLength(1);
     await button(renderer.root.findByType(MenuEditor), "Manage Menu");
     const menu = renderer.root.findByType(MenuManager);
-    await button(renderer.root, "admin");
-    await button(renderer.root, "design");
+    await button(renderer.root, "Design");
     expect(renderer.root.findByType(MenuManager)).toBe(menu);
   });
 

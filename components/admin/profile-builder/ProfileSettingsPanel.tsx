@@ -64,7 +64,7 @@ export function ProfileSettingsPanel({
 
   return (
     <div>
-      {title&&(!v2Mode||["HEADER","BIO","MENU"].includes(selectedKey??""))&&<h3 className="mb-4 text-sm font-semibold text-[var(--admin-text)]">{title}</h3>}
+      {title&&!v2Mode&&<h3 className="mb-4 text-sm font-semibold text-[var(--admin-text)]">{title}</h3>}
 
       <div hidden={selectedKey !== "HEADER"}>
         <HeaderEditor

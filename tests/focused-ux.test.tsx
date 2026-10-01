@@ -11,7 +11,7 @@ import {GlobalDesignControls} from "@/components/admin/profile-builder/GlobalDes
 import {BusinessInfoEditor} from "@/components/admin/profile-builder/V2Editor";
 import {DisclosureScope} from "@/components/admin/profile-builder/DisclosureScope";
 let tree:TestRenderer.ReactTestRenderer;
-afterEach(()=>{if(tree)act(()=>tree.unmount());vi.unstubAllGlobals();});
+afterEach(()=>{if(tree)act(()=>tree.unmount());vi.unstubAllGlobals();vi.useRealTimers();});
 it("only overflow menus close siblings, outside clicks and Escape; ordinary disclosures stay open",()=>{
   class Details {
     open=true; overflow=true; parent:Details|null=null; focus=vi.fn();
@@ -33,15 +33,16 @@ it("only overflow menus close siblings, outside clicks and Escape; ordinary disc
   listeners.get("pointerdown")!({target:{}});expect(child.open).toBe(false);expect(parent.open).toBe(true);
 });
 it("global save coordinates only dirty domains and retains failed drafts for retry",async()=>{
+  vi.useFakeTimers();
   const first=vi.fn().mockResolvedValue(true),second=vi.fn().mockResolvedValue(false);
   function Domain({name,save}:{name:string;save:()=>Promise<boolean>}){const [dirty,setDirty]=useState(false);return <><button onClick={()=>setDirty(true)}>{name}</button><SaveDomain dirty={dirty} onSave={async()=>{const ok=await save();if(ok)setDirty(false);return ok;}}>Child save</SaveDomain></>;}
-  await act(async()=>{tree=TestRenderer.create(<SaveCoordinator><Domain name="Profile" save={first}/><Domain name="Design" save={second}/></SaveCoordinator>);});
+  await act(async()=>{tree=TestRenderer.create(<SaveCoordinator autosave><Domain name="Profile" save={first}/><Domain name="Design" save={second}/></SaveCoordinator>);});
   const button=(text:string)=>tree.root.findAllByType("button").find(n=>n.children.includes(text))!;
-  expect(button("Save Changes").props.disabled).toBe(true);
-  await act(async()=>button("Design").props.onClick());await act(async()=>button("Save Changes").props.onClick());
-  expect(first).not.toHaveBeenCalled();expect(second).toHaveBeenCalledTimes(1);expect(button("Save Changes").props.disabled).toBe(false);
-  expect(tree.root.findByProps({role:"alert"}).children.join("")).toContain("retained");
-  second.mockResolvedValue(true);await act(async()=>button("Save Changes").props.onClick());expect(button("Save Changes").props.disabled).toBe(true);
+  expect(button("Save Changes")).toBeUndefined();
+  await act(async()=>button("Design").props.onClick());await act(async()=>{await vi.advanceTimersByTimeAsync(1000);});
+  expect(first).not.toHaveBeenCalled();expect(second).toHaveBeenCalledTimes(1);
+  expect(tree.root.findByProps({role:"alert"}).children.join("")).toContain("still here");
+  second.mockResolvedValue(true);await act(async()=>{await vi.advanceTimersByTimeAsync(1000);});
   expect(tree.root.findAllByType("button").filter(n=>n.children.includes("Child save"))).toHaveLength(0);
 });
 it("social containers remain independent from brand glyph and color",()=>{
@@ -53,13 +54,13 @@ it("all ten hover choices have a shared mapping and reduced-motion override",()=
   for(const hoverStyle of hoverStyles){expect(profileDesign.parse({hoverStyle}).hoverStyle).toBe(hoverStyle);expect(css).toContain(`[data-hover-style="${hoverStyle}"]`);}
   expect(css).toMatch(/prefers-reduced-motion:reduce[\s\S]*transform:none!important/);
 });
-it("shows Design and Business Info controls directly, with one compact ten-option hover selector",()=>{
+it("shows focused global Design and Business Info controls without technical icon or hover libraries",()=>{
   const onChange=vi.fn();
   act(()=>{tree=TestRenderer.create(<GlobalDesignControls value={undefined} theme="CLASSIC" onChange={onChange}/>);});
-  expect(tree.root.findAllByType("details")).toHaveLength(0);
-  const hover=tree.root.findAllByType("select").find(n=>n.findAllByType("option").some(o=>o.props.value==="SOFT_LIFT"))!;
-  expect(hover.findAllByType("option")).toHaveLength(10);
-  act(()=>hover.props.onChange({target:{value:"GLOW"}}));expect(onChange).toHaveBeenCalledWith(expect.objectContaining({hoverStyle:"GLOW"}));
+  expect(tree.root.findAllByType("summary").some(n=>n.children.join("")==="Design")).toBe(false);
+  expect(tree.root.findAllByType("button").some(n=>n.children.includes("Choose a theme"))).toBe(true);
+  expect(tree.root.findAllByType("select").some(n=>n.findAllByType("option").some(o=>o.props.value==="SOFT_LIFT"))).toBe(false);
+  expect(JSON.stringify(tree.toJSON())).toContain("Primary color");
   act(()=>tree.unmount());
   act(()=>{tree=TestRenderer.create(<BusinessInfoEditor business={{name:"Test",businessType:null,profile:{displayName:"Test",bio:null,phone:null,email:null,address:null,googleMapsUrl:null,whatsapp:null,website:null,logoUrl:null,coverImageUrl:null,backgroundImageUrl:null,themeColor:null,backgroundType:"SOLID",backgroundColor:null,backgroundGradient:null,backgroundMode:"LIGHT",links:[]}}} mutate={async()=>true} onPreview={()=>{}}/>);});
   expect(tree.root.findAllByType("input")).toHaveLength(6);

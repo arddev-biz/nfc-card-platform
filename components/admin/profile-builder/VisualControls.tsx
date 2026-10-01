@@ -1,0 +1,88 @@
+"use client";
+import {useState,type ReactNode} from "react";
+import {Field,Choice,Toggle} from "./V2Controls";
+import {profilePresets,applyProfilePreset} from "@/lib/profile-presets";
+import {editableVisual,type ProfileDesign} from "@/lib/profile-design";
+import {surfaceCSS,readVisual,type ProfileVisual,type VisualOverride,type VisualSurface,type VisualText} from "@/lib/profile-visual";
+
+export function VisualChoice({label,value,options,onChange}:{label:string;value:string;options:readonly {value:string;label:string}[];onChange:(value:string)=>void}) {
+  return <fieldset className="space-y-2"><legend className="text-sm font-medium">{label}</legend><div className="flex flex-wrap gap-2">{options.map(option=><button type="button" key={option.value} aria-pressed={value===option.value} className="rounded-lg border border-[var(--admin-border)] px-3 py-2 text-sm aria-pressed:border-[var(--admin-accent)] aria-pressed:bg-[var(--admin-accent)]/10" onClick={()=>onChange(option.value)}>{option.label}</button>)}</div></fieldset>;
+}
+const options=(values:Record<string,string>)=>Object.entries(values).map(([value,label])=>({value,label}));
+export function ExactNumber({label,value,min=0,max=100,onChange}:{label:string;value:number;min?:number;max?:number;onChange:(n:number)=>void}) {
+  return <label className="flex items-center justify-between gap-4 text-sm">{label}<input aria-label={label} type="number" min={min} max={max} value={value} className="w-24 rounded-lg border bg-[var(--admin-bg)] p-2" onChange={e=>{const n=Number(e.target.value);if(e.target.value!==""&&Number.isFinite(n)&&n>=min&&n<=max)onChange(n);}}/></label>;
+}
+export function ButtonStyle({value,onChange,arrow=true}:{value:VisualOverride;onChange:(v:VisualOverride)=>void;arrow?:boolean}) {
+  const s=value.surface??{},a=value.action??{};
+  const surface=(patch:Partial<VisualSurface>)=>onChange({...value,surface:{...s,...patch}});
+  return <div className="space-y-4">
+    <VisualChoice label="Button style" value={s.variant??"SOLID"} options={options({TRANSPARENT:"Minimal",SOLID:"Filled",SOFT:"Soft",OUTLINE:"Outline",GLASS:"Glass"})} onChange={variant=>surface({variant:variant as VisualSurface["variant"],opacity:variant==="GLASS"?24:variant==="SOFT"?12:100})}/>
+    <VisualChoice label="Shape" value={String(s.radius??16)} options={options({0:"Square",8:"Soft",24:"Round",48:"Pill"})} onChange={radius=>surface({radius:Number(radius)})}/>
+    <VisualChoice label="Size" value={String(a.minHeight??60)} options={options({48:"Small",60:"Normal",72:"Large"})} onChange={size=>onChange({...value,action:{...a,minHeight:Number(size),padding:Number(size)===48?12:18}})}/>
+    <Field label="Button color" type="color" value={s.color??"#ffffff"} onChange={color=>surface({color})}/>
+    <details><summary className="cursor-pointer text-sm font-medium">Customize buttons</summary><div className="mt-3 space-y-3">
+      <ExactNumber label="Corner rounding" value={s.radius??16} max={48} onChange={radius=>surface({radius})}/>
+      <ExactNumber label="Button height" value={a.minHeight??60} min={44} max={160} onChange={minHeight=>onChange({...value,action:{...a,minHeight}})}/>
+      <ExactNumber label="Inside spacing" value={a.padding??16} min={8} max={32} onChange={padding=>onChange({...value,action:{...a,padding}})}/>
+      <ExactNumber label="Fill strength" value={s.opacity??100} onChange={opacity=>surface({opacity})}/>
+      <Choice label="Shadow" value={s.shadow??"NONE"} options={["NONE","SOFT","LIFTED"]} onChange={shadow=>surface({shadow:shadow as VisualSurface["shadow"]})}/>
+      <Field label="Border color" type="color" value={s.borderColor??"#d4d4d4"} onChange={borderColor=>surface({borderColor})}/>
+      <ExactNumber label="Border thickness" value={s.borderWidth??0} max={4} onChange={borderWidth=>surface({borderWidth})}/>
+      {s.variant==="GLASS"&&<ExactNumber label="Background blur" value={s.blur??12} max={24} onChange={blur=>surface({blur})}/>}
+      <Toggle label="Two-color fill" value={!!s.gradientColor} onChange={enabled=>surface({gradientColor:enabled?"#e2e8f0":undefined})}/>
+      {s.gradientColor&&<Field label="Second fill color" type="color" value={s.gradientColor} onChange={gradientColor=>surface({gradientColor})}/>}
+      <Field label="Button text" type="color" value={a.textColor??"#172033"} onChange={textColor=>onChange({...value,action:{...a,textColor}})}/>
+      {arrow&&<Toggle label="Show arrow" value={a.chevron??false} onChange={chevron=>onChange({...value,action:{...a,chevron}})}/>}
+      <Choice label="Icon placement" value={a.iconPosition??"LEFT"} options={["LEFT","RIGHT","TOP","TILE","NONE"]} onChange={iconPosition=>onChange({...value,action:{...a,iconPosition:iconPosition as NonNullable<VisualOverride["action"]>["iconPosition"]}})}/>
+      <ExactNumber label="Icon size" value={a.iconSize??24} min={16} max={48} onChange={iconSize=>onChange({...value,action:{...a,iconSize}})}/>
+    </div></details>
+  </div>;
+}
+export function TextAppearance({value,onChange,color=true,alignment=true}:{value:VisualText;onChange:(v:VisualText)=>void;color?:boolean;alignment?:boolean}) {
+  return <div className="space-y-3"><VisualChoice label="Font" value={value.font??"SANS"} options={options({SANS:"Modern",SERIF:"Classic",HUMANIST:"Friendly",MONO:"Monospace"})} onChange={font=>onChange({...value,font:font as VisualText["font"]})}/>{alignment&&<VisualChoice label="Text alignment" value={value.align??"LEFT"} options={options({LEFT:"Left",CENTER:"Center",RIGHT:"Right"})} onChange={align=>onChange({...value,align:align as VisualText["align"]})}/>}<ExactNumber label="Text size" value={value.size??16} min={12} max={64} onChange={size=>onChange({...value,size})}/><VisualChoice label="Text weight" value={value.weight??"400"} options={options({400:"Regular",500:"Medium",600:"Semibold",700:"Bold",800:"Heavy"})} onChange={weight=>onChange({...value,weight:weight as VisualText["weight"]})}/>{color&&<Field label="Text color" type="color" value={value.color??"#172033"} onChange={color=>onChange({...value,color})}/>}<details><summary className="cursor-pointer text-sm">Customize text</summary><div className="mt-3 space-y-3"><ExactNumber label="Line spacing" value={value.lineHeight??1.5} min={1.1} max={2} onChange={lineHeight=>onChange({...value,lineHeight})}/><ExactNumber label="Letter spacing" value={value.tracking??0} min={-1} max={4} onChange={tracking=>onChange({...value,tracking})}/></div></details></div>;
+}
+export function ProfileVisualControls({value,onChange,backgroundImageControl}:{value:ProfileDesign;onChange:(v:ProfileDesign)=>void;backgroundImageControl?:ReactNode}) {
+  const v=editableVisual(value),c=v.canvas??{};
+  const update=(patch:Partial<ProfileVisual>)=>onChange({...value,visual:{...v,...patch}});
+  const [themesOpen,setThemesOpen]=useState(false);
+  return <section className="space-y-5" aria-label="Profile appearance">
+    <h3 className="text-lg font-semibold">Appearance</h3>
+    <button type="button" className="rounded-lg border px-4 py-2 text-sm" aria-expanded={themesOpen} onClick={()=>setThemesOpen(!themesOpen)}>Choose a theme</button>
+    {themesOpen&&<div className="grid grid-cols-2 gap-3" aria-label="Theme previews">{profilePresets.map(p=><button type="button" key={p.name} aria-label={`Apply ${p.name} theme`} className="overflow-hidden rounded-xl border text-left" onClick={()=>{onChange(applyProfilePreset(value,p.visual));setThemesOpen(false);}}><span aria-hidden="true" className="flex h-28 flex-col items-center gap-2 p-4" style={{background:p.visual.canvas?.background==="GRADIENT"?`linear-gradient(140deg,${p.visual.canvas.color},${p.visual.canvas.gradientColor})`:p.visual.canvas?.color,color:p.visual.typography?.body?.color}}><span className="h-5 w-5 rounded-full border border-current"/>{[0,1].map(i=><span key={i} className="h-5 w-full" style={surfaceCSS(p.visual.surface)}/>)}</span><span className="block p-3 text-sm font-medium">{p.name}</span></button>)}</div>}
+    <VisualChoice label="Background" value={c.background??"EXISTING"} options={options({EXISTING:"Current",SOLID:"Color",GRADIENT:"Gradient",IMAGE:"Photo"})} onChange={background=>update({canvas:{...c,background:background as NonNullable<ProfileVisual["canvas"]>["background"]}})}/>
+    {c.background!=="EXISTING"&&<Field label="Background color" type="color" value={c.color??"#f8fafc"} onChange={color=>update({canvas:{...c,color}})}/>}
+    {c.background==="GRADIENT"&&<Field label="Second background color" type="color" value={c.gradientColor??"#e2e8f0"} onChange={gradientColor=>update({canvas:{...c,gradientColor}})}/>}
+    {c.background==="IMAGE"&&<>{backgroundImageControl}<VisualChoice label="Photo source" value={c.imageSource??"BACKGROUND"} options={options({BACKGROUND:"Background photo",COVER:"Cover photo"})} onChange={imageSource=>update({canvas:{...c,imageSource:imageSource as "BACKGROUND"|"COVER"}})}/></>}
+    <VisualChoice label="Color scheme" value={c.appearance??"LIGHT"} options={options({LIGHT:"Light",DARK:"Dark"})} onChange={appearance=>update({canvas:{...c,appearance:appearance as "LIGHT"|"DARK"}})}/>
+    <details><summary className="cursor-pointer font-medium">Typography</summary><div className="mt-3"><TextAppearance value={v.typography?.body??{}} onChange={body=>update({typography:{...v.typography,body}})}/></div></details>
+    <details><summary className="cursor-pointer font-medium">Buttons and cards</summary><div className="mt-3"><ButtonStyle value={{surface:v.surface,action:v.action}} onChange={next=>update({surface:next.surface,action:next.action})}/></div></details>
+    <VisualChoice label="Spacing" value={String(c.gap??20)} options={options({12:"Compact",20:"Normal",28:"Spacious"})} onChange={gap=>update({canvas:{...c,gap:Number(gap)}})}/>
+    <details><summary className="cursor-pointer text-sm font-medium">Advanced page spacing</summary><div className="mt-3 space-y-3"><ExactNumber label="Page width" value={c.maxWidth??480} min={280} max={960} onChange={maxWidth=>update({canvas:{...c,maxWidth}})}/><ExactNumber label="Page margins" value={c.padding??20} min={8} max={40} onChange={padding=>update({canvas:{...c,padding}})}/><ExactNumber label="Section spacing" value={c.gap??20} max={48} onChange={gap=>update({canvas:{...c,gap}})}/>{c.background==="IMAGE"&&<><ExactNumber label="Photo shading" value={c.overlayOpacity??0} max={90} onChange={overlayOpacity=>update({canvas:{...c,overlayOpacity}})}/><Field label="Shade color" type="color" value={c.overlayColor??"#000000"} onChange={overlayColor=>update({canvas:{...c,overlayColor}})}/><VisualChoice label="Photo fit" value={c.imageFit??"COVER"} options={options({COVER:"Fill",CONTAIN:"Fit",AUTO:"Natural"})} onChange={imageFit=>update({canvas:{...c,imageFit:imageFit as NonNullable<ProfileVisual["canvas"]>["imageFit"]}})}/><ExactNumber label="Photo horizontal position" value={c.focalX??50} onChange={focalX=>update({canvas:{...c,focalX}})}/><ExactNumber label="Photo vertical position" value={c.focalY??50} onChange={focalY=>update({canvas:{...c,focalY}})}/></>}</div></details>
+  </section>;
+}
+export function HeaderVisualControls({value,onChange}:{value:ProfileDesign;onChange:(v:ProfileDesign)=>void}) {
+  const v=editableVisual(value),h=v.hero??{},b=v.badge??{};
+  const update=(patch:Partial<NonNullable<ProfileVisual["hero"]>>)=>onChange({...value,visual:{...v,hero:{...h,...patch}}});
+  // Expose the existing avatar border fields without changing saved theme defaults.
+  const borderControls=<><VisualChoice label="Photo border" value={String(h.avatarBorder??0)} options={[...options({0:"None",1:"Thin",2:"Medium",4:"Thick"}),...([0,1,2,4].includes(h.avatarBorder??0)?[]:[{value:String(h.avatarBorder),label:`Custom (${h.avatarBorder}px)`}])]} onChange={avatarBorder=>update({avatarBorder:Number(avatarBorder)})}/><details><summary className="cursor-pointer text-sm">Photo border color</summary><Field label="Border color" type="color" value={h.avatarBorderColor??"#ffffff"} onChange={avatarBorderColor=>update({avatarBorderColor})}/></details></>;
+  return <section className="space-y-4" aria-label="Header appearance"><VisualChoice label="Header layout" value={h.composition??"COVER_OVERLAP"} options={options({MINIMAL:"Minimal",CENTERED:"Classic",COVER_OVERLAP:"Cover",IMAGE_HERO:"Overlay",PORTRAIT:"Portrait"})} onChange={composition=>update({composition:composition as NonNullable<ProfileVisual["hero"]>["composition"]})}/><VisualChoice label="Alignment" value={h.align??"CENTER"} options={options({LEFT:"Left",CENTER:"Center",RIGHT:"Right"})} onChange={align=>update({align:align as "LEFT"|"CENTER"|"RIGHT"})}/><VisualChoice label="Photo size" value={String(h.avatarSize??96)} options={[...options({64:"Small",96:"Medium",144:"Large"}),...([64,96,144].includes(h.avatarSize??96)?[]:[{value:String(h.avatarSize),label:`Custom (${h.avatarSize}px)`}])]} onChange={size=>update({avatarSize:Number(size)})}/><VisualChoice label="Photo shape" value={String((h.avatarRadius??120)>=(h.avatarSize??96)/2?120:(h.avatarRadius??120)===0?0:16)} options={options({0:"Square",16:"Soft",120:"Circle"})} onChange={radius=>update({avatarRadius:Number(radius)})}/><div className="space-y-3"><h3 className="text-sm font-semibold">Spacing</h3><VisualChoice label="Header spacing" value={String((h.padding??24)<=16?16:(h.padding??24)>=32?32:24)} options={options({16:"Compact",24:"Default",32:"Roomy"})} onChange={padding=>update({padding:Number(padding)})}/><ExactNumber label="Bottom padding" min={0} max={48} value={h.paddingBottom??h.padding??24} onChange={paddingBottom=>update({paddingBottom})}/>{h.paddingBottom!==undefined&&<button type="button" className="text-sm" onClick={()=>update({paddingBottom:undefined})}>Use Header padding</button>}</div>{borderControls}<details><summary className="cursor-pointer font-medium">Advanced header settings</summary><div className="mt-3 space-y-3"><VisualChoice label="Header edge" value={String(h.curvedEdge??0)} options={options({0:"Straight",15:"Soft curve",50:"Arch"})} onChange={curve=>update({curvedEdge:Number(curve)})}/><ExactNumber label="Cover height" value={h.height??240} min={80} max={500} onChange={height=>update({height,mobileHeight:height})}/><ExactNumber label="Photo diameter" value={h.avatarSize??96} min={40} max={240} onChange={avatarSize=>update({avatarSize})}/><ExactNumber label="Photo overlap" value={h.overlap??48} max={120} onChange={overlap=>update({overlap})}/><ExactNumber label="Space between header elements" value={h.gap??12} max={32} onChange={gap=>update({gap})}/><ExactNumber label="Header inside spacing" value={h.padding??24} min={8} max={48} onChange={padding=>update({padding})}/><ExactNumber label="Minimum header height" value={h.minHeight??0} max={600} onChange={minHeight=>update({minHeight})}/><ExactNumber label="Cover shading" value={h.overlayOpacity??0} max={90} onChange={overlayOpacity=>update({overlayOpacity})}/><Toggle label="Show business category" value={h.showBusinessType!==false} onChange={showBusinessType=>update({showBusinessType})}/><TextAppearance value={v.typography?.name??{size:30,weight:"700"}} onChange={name=>onChange({...value,visual:{...v,typography:{...v.typography,name}}})}/></div></details></section>;
+}
+export function HeaderContentControls({value,onChange}:{value:ProfileDesign;onChange:(v:ProfileDesign)=>void}) {
+  const v=editableVisual(value),h=v.hero??{};
+  const update=(patch:Partial<NonNullable<ProfileVisual["hero"]>>)=>onChange({...value,visual:{...v,hero:{...h,...patch}}});
+  return <div className="space-y-3"><Field label="Tagline" value={h.tagline??""} onChange={tagline=>update({tagline})}/><Field label="Description" multiline value={h.description??""} onChange={description=>update({description})}/></div>;
+}
+export function ElementVisualControls({config,onChange,layout=true,action=true,scope="section"}:{config:Record<string,unknown>;onChange:(c:Record<string,unknown>)=>void;layout?:boolean;action?:boolean;scope?:"section"|"link"|"item"}) {
+  const v=readVisual(config.visual),l=v.layout??{};
+  const update=(visual:VisualOverride)=>onChange({...config,visual});
+  const customized=!!(v.surface||v.action||v.text);
+  return <div className="space-y-4">
+    <Toggle label={`Customize this ${scope}`} value={customized} onChange={enabled=>{const next={...config};if(enabled)next.visual={...v,...(action?{surface:{}}:{text:{}})};else{delete next.visual;delete next.surface;}onChange(next);}}/>
+    {!customized&&<p className="text-xs text-[var(--admin-text-secondary)]">Uses the profile design.</p>}
+    {customized&&<>{layout&&<><VisualChoice label="Layout" value={l.mode??"STACK"} options={options({STACK:"List",GRID:"Grid",ROW:"Compact row",CAROUSEL:"Horizontal scroll"})} onChange={mode=>update({...v,layout:{...l,mode:mode as NonNullable<VisualOverride["layout"]>["mode"]}})}/><VisualChoice label="Spacing" value={String(l.gap??12)} options={options({6:"Compact",12:"Normal",24:"Spacious"})} onChange={gap=>update({...v,layout:{...l,gap:Number(gap)}})}/></>}{action?<ButtonStyle value={v} onChange={update}/>:<TextAppearance value={v.text??{}} onChange={text=>update({...v,text})}/>}</>}
+  </div>;
+}
+export function FooterVisualControls({value,onChange}:{value:Record<string,unknown>;onChange:(v:Record<string,unknown>)=>void}) {
+  const v=readVisual(value);
+  return <details><summary className="cursor-pointer font-medium">Customize footer</summary><div className="mt-3 space-y-3"><TextAppearance value={v.text??{}} onChange={text=>onChange({...value,text})}/><Choice label="Decoration" value={String(value.decoration??"NONE")} options={["NONE","LINE","HEART","STAR"]} onChange={decoration=>onChange({...value,decoration})}/></div></details>;
+}

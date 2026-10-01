@@ -41,7 +41,9 @@ describe("actual licensed icon mappings",()=>{
   it("falls back safely for unsupported families",()=>expect(renderToStaticMarkup(<SystemIcon set="unknown" glyph="PHONE"/>)).toBe(renderToStaticMarkup(<SystemIcon glyph="PHONE"/>)));
   it("separates brand and theme coloring without changing the recognizable social glyph",()=>{
     const render=(iconColor:string)=>renderToStaticMarkup(<ProfileLinkIcon type="INSTAGRAM" mode="DEFAULT" url={null} iconColor={iconColor}/>);
-    expect(render("BRAND")).toContain("color:#C13584");expect(render("THEME")).toContain("color:var(--v2-accent)");expect(render("MONOCHROME")).not.toContain("#C13584");
+    expect(render("BRAND")).toContain("color:#C13584");expect(render("THEME")).toContain("color:var(--v2-accent)");expect(render("MONOCHROME")).not.toMatch(/(?:^|;)color:#C13584/);
+    // Brand ink metadata exists for light-fill contrast; it must not set the monochrome foreground.
+    expect(render("MONOCHROME")).toContain("--social-brand-ink:#C13584");
     expect(render("BRAND").match(/d="[^"]+"/g)).toEqual(render("MONOCHROME").match(/d="[^"]+"/g));
   });
   it("custom icon overrides system family and hidden icons remain absent",()=>{

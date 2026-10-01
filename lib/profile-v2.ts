@@ -3,13 +3,15 @@ import { profileDesign, footerConfig, surfaceFields, type ProfileDesign } from "
 import { z } from "zod";
 import { profileLinkInputSchema } from "@/lib/validation/profile-links";
 import { PHONE_PATTERN } from "@/lib/validation/shared";
+import { sectionVisualFields, itemVisualFields, mediaVisual } from "./profile-visual";
 
 export const coreKeys = ["BIO", "BUSINESS_INFO", "LINKS", "MENU"] as const;
 export const itemKinds = ["HEADING", "TEXT", "LINK", "IMAGE", "CAROUSEL", "DIVIDER", "SPACER", "ICON_TEXT", "CONTACT", "MAP", "REVIEW", "SOCIAL", "MENU"] as const;
-export const networks = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X"] as const;
+export const networks = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE", "LINKEDIN", "X", "PINTEREST", "TWITCH", "SNAPCHAT", "SPOTIFY", "DISCORD", "TELEGRAM", "REDDIT", "GITHUB", "BEHANCE", "DRIBBBLE", "VIMEO", "SOUNDCLOUD"] as const;
 export const httpUrl = z.string().trim().max(1000).url().refine(v => /^https?:\/\//i.test(v), "Use an http or https URL.");
 const id = z.string().min(1).max(100);
 const textStyle = {
+  ...sectionVisualFields,
   ...surfaceFields,
   lineHeight: z.enum(["TIGHT","NORMAL","RELAXED"]).default("NORMAL"),
   letterSpacing: z.enum(["TIGHT","NORMAL","WIDE"]).default("NORMAL"),
@@ -21,13 +23,16 @@ const textStyle = {
 };
 export const textConfig = z.object(textStyle).strict();
 export const infoConfig = z.object({
+  ...sectionVisualFields,
   ...surfaceFields,
   phone: z.boolean().default(false), whatsapp: z.boolean().default(false),
   email: z.boolean().default(false), website: z.boolean().default(false),
   address: z.boolean().default(false), maps: z.boolean().default(false),
 }).strict();
 export const socialConfig = z.object({
-  containerStyle:z.enum(["ICON_ONLY","FILLED","OUTLINE"]).default("ICON_ONLY"),
+  ...sectionVisualFields,
+  composition: z.enum(["ICONS", "CARDS"]).optional(),
+  containerStyle:z.enum(["ICON_ONLY","FILLED","BRANDED","OUTLINE"]).default("ICON_ONLY"),
   shape:z.enum(["CIRCLE","ROUNDED","SQUARE"]).default("CIRCLE"),
   containerColor:z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   border:z.boolean().default(false),
@@ -41,6 +46,8 @@ export const socialConfig = z.object({
   labels: z.boolean().default(false),
 }).strict();
 export const mediaConfig = z.object({
+  ...itemVisualFields,
+  media: mediaVisual.optional(),
   ...surfaceFields,
   ratio: z.enum(["AUTO", "SQUARE", "PORTRAIT", "LANDSCAPE"]).default("AUTO"),
   mode: z.enum(["SLIDE", "CONTINUOUS"]).default("SLIDE"),
@@ -50,24 +57,26 @@ export const mediaConfig = z.object({
 }).strict();
 export const itemConfigs = {
   HEADING: z.object({ text: z.string().max(500).default(""), ...textStyle }).strict(),
-  TEXT: z.object({ text: z.string().max(10000).default(""), ...textStyle }).strict(),
+  TEXT: z.object({ text: z.string().max(10000).default(""), ...textStyle,
+    testimonial: z.object({ author: z.string().max(100), role: z.string().max(120).optional(), rating: z.number().int().min(1).max(5).optional() }).strict().optional(),
+  }).strict(),
   ICON_TEXT: z.object({ text: z.string().max(3000).default(""), icon: z.enum(["STAR", "HEART", "CHECK", "PIN"]).default("STAR"), ...textStyle }).strict(),
-  LINK: z.object({ ...surfaceFields, label: z.string().max(100).default("Link"), url: httpUrl.or(z.literal("")).default("") }).strict(),
-  MENU: z.object({ ...surfaceFields, label: z.string().max(100).default("View Menu") }).strict(),
+  LINK: z.object({ ...surfaceFields, ...itemVisualFields, subtitle: z.string().max(200).optional(), label: z.string().max(100).default("Link"), url: httpUrl.or(z.literal("")).default("") }).strict(),
+  MENU: z.object({ ...surfaceFields, ...itemVisualFields, subtitle: z.string().max(200).optional(), label: z.string().max(100).default("View Menu") }).strict(),
   IMAGE: mediaConfig, CAROUSEL: mediaConfig,
   DIVIDER: z.object({}).strict(),
   SPACER: z.object({ size: z.enum(["SMALL", "MEDIUM", "LARGE"]).default("MEDIUM") }).strict(),
-  CONTACT: z.object({ ...surfaceFields, action: z.enum(["PHONE", "WHATSAPP", "EMAIL", "WEBSITE"]).default("PHONE"), label: z.string().max(100).default("") }).strict(),
-  MAP: z.object({ ...surfaceFields, label: z.string().max(100).default("Directions") }).strict(),
-  REVIEW: z.object({ ...surfaceFields, label: z.string().max(100).default("Google Reviews") }).strict(),
-  SOCIAL: z.object({ ...surfaceFields, label: z.string().max(100).default("Social") }).strict(),
+  CONTACT: z.object({ ...surfaceFields, ...itemVisualFields, subtitle: z.string().max(200).optional(), action: z.enum(["PHONE", "WHATSAPP", "EMAIL", "WEBSITE", "SAVE_CONTACT"]).default("PHONE"), label: z.string().max(100).default("") }).strict(),
+  MAP: z.object({ ...surfaceFields, ...itemVisualFields, subtitle: z.string().max(200).optional(), label: z.string().max(100).default("Directions") }).strict(),
+  REVIEW: z.object({ ...surfaceFields, ...itemVisualFields, subtitle: z.string().max(200).optional(), label: z.string().max(100).default("Google Reviews") }).strict(),
+  SOCIAL: z.object({ ...surfaceFields, ...itemVisualFields, subtitle: z.string().max(200).optional(), label: z.string().max(100).default("Social") }).strict(),
 };
 export type ItemKind = keyof typeof itemConfigs;
 export function parseSectionConfig(key: string | null, value: unknown) {
   if (key === "BIO") return textConfig.parse(value);
   if (key === "BUSINESS_INFO") return infoConfig.parse(value);
   if (key === "SOCIALS") return socialConfig.parse(value);
-  return z.object(surfaceFields).strict().parse(value);
+  return z.object({...surfaceFields,...sectionVisualFields}).strict().parse(value);
 }
 export const sectionData = z.object({
   internalName: z.string().trim().min(1).max(100),

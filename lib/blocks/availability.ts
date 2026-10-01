@@ -25,6 +25,7 @@ export function isV2SectionAvailable(section: V2Section, business: PublicBusines
     if (i.kind === "SOCIAL") return links.some(l => l.id === i.referencedProfileLinkId);
     if (i.kind === "REVIEW") return Boolean(vm.reviewsHref);
     if (i.kind === "MAP") return Boolean(vm.directionsHref);
+    if(i.kind==="CONTACT"&&i.config.action==="SAVE_CONTACT")return true;
     if (i.kind === "CONTACT") return Boolean(i.config.action === "PHONE" ? vm.callHref : i.config.action === "WHATSAPP" ? vm.whatsappHref : i.config.action === "EMAIL" ? p.email : links.some(l => l.type === "WEBSITE") || p.website);
     return true;
   });

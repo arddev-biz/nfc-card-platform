@@ -1,4 +1,8 @@
-import {profilePresentation} from "@/lib/profile-presentation";
+import "./ProfileVisual.css";
+import {VisualHeader} from "./VisualHeader";
+import {textCSS,roleTextCSS,surfaceCSS,layoutCSS} from "@/lib/profile-visual";
+import type {CSSProperties} from "react";
+import {profilePresentation,resolveProfileBackground,backgroundBlurRadius} from "@/lib/profile-presentation";
 import { resolveFooter } from "@/lib/branding";
 import { resolveProfileDesign } from "@/lib/profile-design";
 import { VerificationBadge } from "./VerificationBadge";
@@ -8,7 +12,6 @@ import { isV2SectionAvailable } from "@/lib/blocks/availability";
 import NextLink from "next/link";
 import type { LinkType } from "@prisma/client";
 import { buildLinkHref, opensInNewTab } from "@/lib/linkTypes";
-import { resolveBackground } from "@/lib/background";
 import { LinkIcon } from "@/components/profile/LinkIcon";
 import type { PublicBusinessProfile } from "@/lib/services/public-profile";
 import type { ProfileViewModel } from "@/lib/profileView";
@@ -25,6 +28,7 @@ interface ProfileRendererProps {
   /** Used to build the "/menu" link. In the builder preview this can be any placeholder slug — the link is never actually followed there. */
   slug: string;
   preview?: boolean;
+  selectedSectionId?: string;
 }
 
 /** Simple generic menu/list glyph — matches LinkIcon's style (no brand logos, no new dependency). */
@@ -44,19 +48,20 @@ function MenuGlyph({ className }: { className?: string }) {
   );
 }
 
-export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, slug, preview = false }: ProfileRendererProps) {
+export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, slug, preview = false, selectedSectionId }: ProfileRendererProps) {
   const { profile } = business;
   const isV2=business.v2?.version===2;
   const design=resolveProfileDesign(business.v2?.design,business.v2?.theme);
   const themeColor = isV2&&design.accentEnabled===false ? "currentColor" : profile.themeColor || DEFAULT_THEME_COLOR;
-  const background = resolveBackground(profile);
-  // V2 soft-dark is explicit even when no custom background color exists.
-  if (business.v2?.version === 2 && profile.backgroundMode === "DARK") {
-    background.mode = "dark";
-    if (!profile.backgroundColor && profile.backgroundType === "SOLID") background.style = { backgroundColor: "#303644" };
-  }
-  if(isV2&&design.backgroundPreset&&design.backgroundPreset!=="CUSTOM") {background.mode=["DUSK","MIDNIGHT"].includes(design.backgroundPreset)?"dark":"light";background.hasImage=false;}
+  const background = resolveProfileBackground(profile,isV2?design:undefined);
+  const visual=isV2?design.visual:undefined, canvas=visual?.canvas;
+  const visualStyle= (visual?{...roleTextCSS(visual.typography,"body"),
+    "--v2-canvas-width":`${canvas?.maxWidth??480}px`,"--visual-page-padding":`${canvas?.padding??20}px`,
+    "--visual-page-gap":canvas?.gap!==undefined?`${canvas.gap}px`:undefined,"--visual-page-color":canvas?.color,
+    "--v2-text":visual.typography?.body?.color,"--visual-caption-size":`${visual.typography?.caption?.size??13}px`,"--visual-caption-color":visual.typography?.caption?.color,"--visual-media-radius":`${visual.surface?.radius??16}px`}:{}) as CSSProperties;
   const isDark = background.mode === "dark";
+  const blurRadius=isV2?backgroundBlurRadius(design):0;
+  const pagePaint=blurRadius>0?{backgroundColor:background.style.backgroundColor??(isDark?"#101827":"#ffffff")}:background.style;
 
   const cardClass = isDark
     ? "bg-white/10 backdrop-blur-sm ring-1 ring-white/10"
@@ -239,21 +244,22 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
   }
 
   const renderedBlocks = isV2
-    ? (viewModel.v2Sections ?? []).filter(section => isV2SectionAvailable(section, business, viewModel, menuAvailable)).map(section => <V2SectionContent key={section.id} section={section} business={business} viewModel={viewModel} menuAvailable={menuAvailable} slug={slug} />)
+    ? (viewModel.v2Sections ?? []).filter(section => isV2SectionAvailable(section, business, viewModel, menuAvailable)).map(section => <V2SectionContent key={section.id} section={section} business={business} viewModel={viewModel} menuAvailable={menuAvailable} slug={slug} editorSelected={preview&&selectedSectionId===section.id} />)
     : blocks.map(renderBlock).filter(Boolean);
   const hasAnyContent = renderedBlocks.length > 0;
 
   return (
-    <main className={`relative min-h-screen ${isV2 ? "profile-v2" : ""}`} data-hover-style={isV2?design.hoverStyle??"SOFT_LIFT":undefined} data-profile-theme={isV2 ? design.theme : undefined} data-preview={preview} data-radius={isV2 ? design.radius : undefined} data-card-size={isV2 ? design.cardSize??"MEDIUM" : undefined} data-density={isV2 ? design.density : undefined} data-default-surface={isV2 ? design.surface : undefined} data-icon-style={isV2 ? design.iconStyle : undefined} data-appearance={isDark ? "dark" : "light"} style={{...background.style,...(isV2 ? { "--v2-accent": themeColor,...profilePresentation(design) } : {})}}>
-      {background.hasImage && (
+    <main data-visual-version={visual?.version} className={`relative min-h-screen ${isV2 ? "profile-v2" : ""}`} data-hover-style={isV2?design.hoverStyle??"SOFT_LIFT":undefined} data-profile-theme={isV2 ? design.theme : undefined} data-preview={preview} data-radius={isV2 ? design.radius : undefined} data-card-size={isV2 ? design.cardSize??"MEDIUM" : undefined} data-density={isV2 ? design.density : undefined} data-default-surface={isV2 ? design.surface : undefined} data-icon-style={isV2 ? design.iconStyle : undefined} data-appearance={isDark ? "dark" : "light"} style={{...pagePaint,...(isV2 ? { "--v2-accent": themeColor,...profilePresentation(design,false) } : {}),...visualStyle}}>
+      {blurRadius>0&&<div data-profile-background-layer aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden"><div data-profile-background-paint className="absolute" style={{...background.style,inset:-blurRadius*3,filter:`blur(${blurRadius}px)`}}/></div>}
+      {((canvas?.overlayOpacity??0)>0||background.hasImage) && (
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)" }}
+          style={{ backgroundColor: canvas?.overlayOpacity?`color-mix(in srgb, ${canvas.overlayColor??"#000000"} ${canvas.overlayOpacity}%, transparent)`:isDark ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)" }}
         />
       )}
       <div className={`relative z-10 mx-auto flex min-h-screen w-full flex-col pb-12 ${isV2 ? "v2-canvas" : "max-w-md"}`}>
         {/* HEADER — fixed, not a reorderable/hideable block (a profile without one doesn't make sense) */}
-        <div className="relative">
+        {visual?<VisualHeader business={business} design={visual}/>:<div className="relative">
           {(!isV2 || profile.coverImageUrl) && <div
             data-profile-cover
             className="relative h-48 w-full overflow-hidden rounded-b-3xl sm:h-64"
@@ -287,7 +293,7 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
               </span>
             )}
           </header>
-        </div>
+        </div>}
 
         <div className={`flex flex-col gap-4 px-5 pt-6 ${isV2 ? "v2-content" : ""}`}>
           {renderedBlocks}
@@ -298,7 +304,8 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
             </p>
           )}
 
-          {(!isV2||resolveFooter(design.footer,business.branding?.platformName))&&<footer className={`pt-8 text-center text-xs ${mutedTextClass}`}>
+          {(!isV2||resolveFooter(design.footer,business.branding?.platformName))&&<footer style={isV2?{...surfaceCSS(design.footer?.visual?.surface),...layoutCSS(design.footer?.visual?.layout),...roleTextCSS(visual?.typography,"caption"),...textCSS(design.footer?.visual?.text)}:undefined} className={`pt-8 text-center text-xs ${mutedTextClass}`}>
+            {isV2&&design.footer?.visual?.decoration&&design.footer.visual.decoration!=="NONE"&&<div aria-hidden="true" className="mb-3">{({LINE:"—",HEART:"♥",STAR:"★"} as const)[design.footer.visual.decoration]}</div>}
             {isV2?resolveFooter(design.footer,business.branding?.platformName):profile.displayName || business.name}
           </footer>}
         </div>

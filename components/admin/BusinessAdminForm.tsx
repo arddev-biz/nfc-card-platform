@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/Toast";
 
 interface BusinessAdminFormProps {
   organizationId: string;
+  showBusinessType?: boolean;
   initialValues: {
     businessName: string;
     slug: string;
@@ -17,7 +18,7 @@ interface BusinessAdminFormProps {
 
 type FieldErrors = Partial<Record<keyof BusinessAdminFormProps["initialValues"], string[]>>;
 
-export function BusinessAdminForm({ organizationId, initialValues }: BusinessAdminFormProps) {
+export function BusinessAdminForm({ organizationId, initialValues, showBusinessType=true }: BusinessAdminFormProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [values, setValues] = useState(initialValues);
@@ -40,7 +41,7 @@ export function BusinessAdminForm({ organizationId, initialValues }: BusinessAdm
       const response = await fetch(`/api/admin/businesses/${organizationId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(showBusinessType?values:{businessName:values.businessName,slug:values.slug}),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.organization) {
@@ -91,7 +92,7 @@ export function BusinessAdminForm({ organizationId, initialValues }: BusinessAdm
         <Input id="slug" value={values.slug} onChange={(event) => update("slug", event.target.value)} />
         {fieldErrors.slug?.[0] && <p className="mt-1 text-sm text-red-600">{fieldErrors.slug[0]}</p>}
       </div>
-
+      {showBusinessType&&
       <div>
         <label htmlFor="businessType" className="block text-sm font-medium text-[var(--admin-text)]">
           Business type
@@ -104,7 +105,7 @@ export function BusinessAdminForm({ organizationId, initialValues }: BusinessAdm
         {fieldErrors.businessType?.[0] && (
           <p className="mt-1 text-sm text-red-600">{fieldErrors.businessType[0]}</p>
         )}
-      </div>
+      </div>}
 
       <Button type="submit" disabled={isSaving}>
         {isSaving ? "Saving…" : "Save business details"}

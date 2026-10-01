@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
+vi.mock("@/lib/auth/session",()=>({requireAdminSession:async()=>({role:"SUPER_ADMIN"})}));
+vi.mock("@/lib/services/custom-themes",()=>({listCustomThemes:async()=>[]}));
 import { ProfileBuilderShell } from "@/components/admin/ProfileBuilderShell";
 import { BusinessAdminForm } from "@/components/admin/BusinessAdminForm";
 import { NfcCardsManager } from "@/components/admin/NfcCardsManager";
@@ -93,10 +95,11 @@ describe("canonical Business Editor routing", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/admin/businesses/org-1");
   });
 
-  it("passes existing admin managers and subscription information into the unified workspace", async () => {
+  it("keeps administration available outside the focused profile workspace", async () => {
     const page = await BusinessEditorPage({ params: { id: "org-1" }, searchParams: {} });
     const shell = elements(page).find((element) => element.type === ProfileBuilderShell)!;
-    const admin = elements(shell.props.adminPanel);
+    const admin = elements(page);
+    expect(shell.props.adminPanel).toBeUndefined();
     expect(admin.some((element) => element.type === BusinessAdminForm)).toBe(true);
     expect(admin.some((element) => element.type === NfcCardsManager)).toBe(true);
     expect(admin.some((element) => element.type === BusinessStatusActions)).toBe(true);

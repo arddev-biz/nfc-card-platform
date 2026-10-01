@@ -120,7 +120,7 @@ export function HeaderEditor({
     <div className="space-y-4">
       <ImageSlot
         label="Logo"
-        hint="Square image, shown as a circle overlapping the cover. JPEG, PNG, or WebP, up to 5MB."
+        hint="Square image recommended. Its shape follows your Header appearance. JPEG, PNG, or WebP, up to 5MB."
         url={logoUrl}
         isBusy={busyKind === "logo"}
         error={logoError}

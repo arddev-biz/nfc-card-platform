@@ -1,0 +1,16 @@
+import type { ReactNode } from "react";
+import { actionCSS, surfaceCSS, textCSS, roleTextCSS, type VisualOverride, type ProfileVisual } from "@/lib/profile-visual";
+
+export function VisualAction({href,label,subtitle,icon,visual,typography,external,download}: {
+  href:string;label:string;subtitle?:string;icon:ReactNode;visual:VisualOverride;
+  typography?:ProfileVisual["typography"];external?:boolean;download?:string;
+}) {
+  const a=visual.action;
+  return <a className="v2-surface v2-action flex h-full items-center gap-3" href={href} aria-label={label}
+    target={external?"_blank":undefined} rel="noopener noreferrer" download={download}
+    style={{...surfaceCSS({variant:"SOLID",radius:16,...visual.surface}),...roleTextCSS(typography,"label"),...textCSS(visual.text),...actionCSS({minHeight:56,padding:14,...a})}}>
+    {icon&&a?.iconPosition!=="NONE"&&<span className="visual-action-icon" style={{width:a?.iconContainerSize??a?.iconSize??24,minWidth:a?.iconContainerSize??a?.iconSize??24,height:a?.iconContainerSize??a?.iconSize??24,borderRadius:a?.iconRadius,color:a?.iconColor,background:a?.iconBackground,padding:a?.iconPosition==="TILE"?8:undefined}}>{icon}</span>}
+    <span className="visual-action-copy"><span className="block">{label}</span>{subtitle&&<span className="mt-1 block" style={{...roleTextCSS(typography,"caption"),color:a?.secondaryColor??typography?.caption?.color}}>{subtitle}</span>}</span>
+    {a?.chevron&&<span aria-hidden="true" className="ml-auto shrink-0">›</span>}
+  </a>;
+}

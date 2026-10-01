@@ -1,16 +1,20 @@
 "use client";
+import {VisualChoice,ExactNumber} from "./VisualControls";
+import {mediaVisual} from "@/lib/profile-visual";
 import { Switch } from "@/components/ui/Switch";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 import { useState } from "react";
 import { textConfig, mediaConfig } from "@/lib/profile-v2";
 import { surfaceConfig } from "@/lib/profile-design";
+import {useUploadActivity} from "./UploadActivity";
 const inputClass = "w-full rounded-lg border border-[var(--admin-border)] bg-[var(--admin-bg)] p-2 text-[var(--admin-text)]";
 export function Field({ label, value, onChange, multiline = false, type = "text" }: { label: string; value: string; onChange: (v:string)=>void; multiline?: boolean; type?: string }) {
   if(type==="color")return <ColorPicker label={label} value={value} onChange={onChange}/>;
   return <label className="block space-y-1 text-sm"><span>{label}</span>{multiline ? <textarea className={inputClass} value={value} onChange={e=>onChange(e.target.value)} rows={4} /> : <input type={type} className={inputClass} value={value} onChange={e=>onChange(e.target.value)} />}</label>;
 }
 export function Choice({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (v:string)=>void }) {
-  return <label className="block space-y-1 text-sm"><span>{label}</span><select className={inputClass} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{o === "DIMENSIONAL" ? "3D" : o === "DEFAULT" ? "Theme default" : o.replaceAll("_"," ")}</option>)}</select></label>;
+  const humanize=(option:string)=>option === "DIMENSIONAL" ? "3D" : option === "DEFAULT" ? "Theme default" : option === "INHERIT" ? "Use profile style" : option.replaceAll("_"," ").toLowerCase().replace(/(^|\s)\S/g,letter=>letter.toUpperCase());
+  return <label className="block space-y-1 text-sm"><span>{label}</span><select className={inputClass} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{humanize(o)}</option>)}</select></label>;
 }
 export function SurfaceControls({config,onChange}:{config:Record<string,unknown>;onChange:(v:Record<string,unknown>)=>void}) {
   const parsed=surfaceConfig.safeParse(config.surface), c=parsed.success?parsed.data:surfaceConfig.parse({});
@@ -35,11 +39,12 @@ export function TextControls({ config, onChange }: { config:Record<string,unknow
     {c.color && <Field label="Text color" type="color" value={String(c.color)} onChange={color=>onChange({...config,color})} />}
   </div>;
 }
-export function MediaControls({ config,onChange,carousel }: {config:Record<string,unknown>;onChange:(v:Record<string,unknown>)=>void;carousel:boolean}) {
+export function MediaControls({ config,onChange,carousel,simple=false }: {config:Record<string,unknown>;onChange:(v:Record<string,unknown>)=>void;carousel:boolean;simple?:boolean}) {
   const c = {...mediaConfig.parse({}),...config};
   return <div className="grid gap-3 sm:grid-cols-2">
+    <div className="sm:col-span-2 space-y-3">{carousel&&<VisualChoice label="Gallery layout" value={c.media?.layout??"CAROUSEL"} options={[{value:"CAROUSEL",label:"Single"},{value:"GRID",label:"Grid"},{value:"ROW",label:"Horizontal"},{value:"FEATURED",label:"Featured"}]} onChange={layout=>onChange({...c,media:{...c.media,layout}})}/>}<VisualChoice label="Photo shape" value={String(c.media?.radius??16)} options={[{value:"0",label:"Square"},{value:"8",label:"Soft"},{value:"24",label:"Round"}]} onChange={radius=>onChange({...c,media:{...c.media,radius:Number(radius)}})}/><details><summary className="cursor-pointer text-sm">Customize images</summary><div className="mt-3 space-y-3"><ExactNumber label="Image spacing" value={c.media?.gap??12} max={32} onChange={gap=>onChange({...c,media:{...c.media,gap}})}/><Choice label="Image fit" value={c.media?.fit??"COVER"} options={["COVER","CONTAIN"]} onChange={fit=>onChange({...c,media:{...c.media,fit}})}/></div></details></div>
     <Choice label="Aspect ratio" value={String(c.ratio)} options={["AUTO","SQUARE","PORTRAIT","LANDSCAPE"]} onChange={ratio=>onChange({...c,ratio})} />
-    {carousel && <>
+    {carousel && !simple && (!c.media?.layout||c.media.layout==="CAROUSEL") && <>
       <Choice label="Motion" value={String(c.mode)} options={["SLIDE","CONTINUOUS"]} onChange={mode=>onChange({...c,mode})} />
       <Choice label="Speed" value={String(c.speed)} options={["SLOW","NORMAL","FAST"]} onChange={speed=>onChange({...c,speed})} />
       {(["autoplay","loop","pagination","resume"] as const).map(key=><Toggle key={key} label={key === "resume" ? "Resume after 5 seconds inactivity" : key} value={Boolean(c[key])} onChange={value=>onChange({...c,[key]:value})} />)}
@@ -48,9 +53,10 @@ export function MediaControls({ config,onChange,carousel }: {config:Record<strin
 }
 export function Upload({ organizationId, label, onUploaded, multiple = false, disabled = false }: { organizationId:string;label:string;onUploaded:(asset:{id:string;url:string})=>Promise<void>;multiple?:boolean;disabled?:boolean }) {
   const [busy,setBusy]=useState(false), [error,setError]=useState("");
+  const {begin}=useUploadActivity();
   return <label className="block space-y-2 text-sm">{label}<input aria-label={label} type="file" accept="image/jpeg,image/png,image/webp" multiple={multiple} disabled={disabled||busy} className="block max-w-full"
     onChange={async e=>{
-      const files=Array.from(e.target.files??[]);e.target.value="";setBusy(true);setError("");
+      const files=Array.from(e.target.files??[]);e.target.value="";if(!files.length)return;const end=begin();setBusy(true);setError("");
       try { for(const file of files) {
         if(file.size>5*1024*1024) throw new Error("Maximum 5MB per image.");
         const body=new FormData();body.set("file",file);
@@ -58,6 +64,6 @@ export function Upload({ organizationId, label, onUploaded, multiple = false, di
         const data=await r.json();if(!r.ok)throw new Error(data.error);
         try { await onUploaded(data.asset); }
         catch(e) { await fetch(`/api/admin/businesses/${organizationId}/v2/assets?assetId=${encodeURIComponent(data.asset.id)}`,{method:"DELETE"}); throw e; }
-      }} catch(err) {setError(err instanceof Error?err.message:"Upload failed.");} finally{setBusy(false);}
+      }} catch(err) {setError(err instanceof Error?err.message:"Upload failed.");} finally{setBusy(false);end();}
     }} />{busy&&<span role="status">Uploading…</span>}{error&&<span role="alert">{error}</span>}</label>;
 }

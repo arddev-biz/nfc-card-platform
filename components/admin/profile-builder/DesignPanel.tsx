@@ -24,6 +24,7 @@ export interface DesignDraft {
 
 interface DesignPanelProps {
   accentEnabled?:boolean;
+  visualMode?:boolean;
   organizationId: string;
   draft: DesignDraft;
   onChange: (fields: Partial<DesignDraft>) => void;
@@ -40,6 +41,7 @@ const TYPE_OPTIONS: { value: BackgroundType; label: string }[] = [
 
 export function DesignPanel({
   accentEnabled=true,
+  visualMode=false,
   organizationId,
   draft,
   onChange,
@@ -105,12 +107,23 @@ export function DesignPanel({
     }
   }
 
+  if (visualMode) return <ImageSlot
+    label="Background photo"
+    hint="JPEG, PNG, or WebP, up to 5MB."
+    url={backgroundImageUrl}
+    isBusy={isImageBusy}
+    error={imageError}
+    onUpload={uploadBackground}
+    onRemove={removeBackground}
+    previewClassName="h-16 w-28 shrink-0 rounded-lg object-cover"
+  />;
+
   return (
     <div className="space-y-6">
-      <Button type="button" variant="secondary" onClick={() => onChange({
+      {!visualMode&&<><Button type="button" variant="secondary" onClick={() => onChange({
         themeColor: "", backgroundType: "SOLID", backgroundColor: "", backgroundGradient: "", backgroundMode: "LIGHT",
       })}>Use default design (save to apply)</Button>
-      <p className="text-xs">Default design uses plain solid/light appearance. Uploaded background images are retained until explicitly removed.</p>
+      <p className="text-xs">Default design uses plain solid/light appearance. Uploaded background images are retained until explicitly removed.</p></>}
       <div>
         <label className="block text-sm font-medium text-[var(--admin-text)]">Accent Color</label>
         <p className="mt-1 text-xs text-[var(--admin-text-secondary)]">
@@ -120,7 +133,8 @@ export function DesignPanel({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-[var(--admin-text)]">Background</label>
+        <label className="block text-sm font-medium text-[var(--admin-text)]">{visualMode?"Background photo":"Background"}</label>
+        {!visualMode&&<>
         <div className="mt-2 flex gap-2">
           {TYPE_OPTIONS.map((option) => (
             <button
@@ -161,7 +175,8 @@ export function DesignPanel({
           </div>
         )}
 
-        {draft.backgroundType === "IMAGE" && (
+        </>}
+        {(visualMode||draft.backgroundType === "IMAGE") && (
           <div className="mt-3">
             <ImageSlot
               label="Background image"
@@ -177,7 +192,7 @@ export function DesignPanel({
         )}
       </div>
 
-      <div>
+      {!visualMode&&<div>
         <label className="block text-sm font-medium text-[var(--admin-text)]">Appearance</label>
         <div className="mt-2 flex gap-2">
           {(["LIGHT", "DARK"] as const).map((mode) => (
@@ -195,7 +210,7 @@ export function DesignPanel({
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {!coordinated&&<Button type="button" disabled={isSaving} onClick={handleSave}>
         {isSaving ? "Saving…" : "Save design"}

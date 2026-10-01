@@ -1,42 +1,18 @@
 import type { Metadata } from "next";
-import { Navbar } from "@/components/marketing/Navbar";
-import { Hero } from "@/components/marketing/Hero";
-import { HowItWorks } from "@/components/marketing/HowItWorks";
-import { Features } from "@/components/marketing/Features";
-import { ExampleProfile } from "@/components/marketing/ExampleProfile";
-import { WhyNfc } from "@/components/marketing/WhyNfc";
-import { Pricing } from "@/components/marketing/Pricing";
-import { Faq } from "@/components/marketing/Faq";
-import { FinalCta } from "@/components/marketing/FinalCta";
-import { Footer } from "@/components/marketing/Footer";
+import { LandingNavbar } from "@/components/marketing/landing/LandingNavbar";
+import { Hero, Features, ProfileShowcase, NfcShowcase, HowItWorks, Pricing, SocialProof, Faq, FinalCta, MarketingFooter } from "@/components/marketing/landing/Sections";
+import styles from "@/components/marketing/landing/landing.module.css";
 
 export const metadata: Metadata = {
-  title: "NFC Card Platform — Your business, one simple tap",
-  description:
-    "NFC business cards connected to a personalized digital profile — social links, WhatsApp, Google Reviews, and your menu, all in one tap.",
-  openGraph: {
-    title: "NFC Card Platform — Your business, one simple tap",
-    description:
-      "NFC business cards connected to a personalized digital profile — social links, WhatsApp, Google Reviews, and your menu, all in one tap.",
-    type: "website",
-  },
+  title: "AuraLink — One tap. Infinite opportunities.",
+  description: "Connect your NFC business card to a customizable digital profile. Share your links, menu, reviews and contact details with a tap or scan.",
+  openGraph: { title: "AuraLink — One tap. Infinite opportunities.", description: "Your business. Your card. Everything connected.", type: "website" },
 };
-
 export default function LandingPage() {
-  return (
-    <div className="min-h-screen bg-brand-dark">
-      <Navbar />
-      <main>
-        <Hero />
-        <HowItWorks />
-        <Features />
-        <ExampleProfile />
-        <WhyNfc />
-        <Pricing />
-        <Faq />
-        <FinalCta />
-      </main>
-      <Footer />
-    </div>
-  );
+  return <div className={styles.landing} id="home">
+    <a className={styles.skip} href="#main-content">Skip to content</a>
+    <LandingNavbar />
+    <main id="main-content"><Hero /><Features /><ProfileShowcase /><NfcShowcase /><HowItWorks /><Pricing /><SocialProof /><Faq /><FinalCta /></main>
+    <MarketingFooter />
+  </div>;
 }

@@ -1,0 +1,61 @@
+import React from "react";
+import {renderToStaticMarkup} from "react-dom/server";
+import TestRenderer,{act} from "react-test-renderer";
+import {expect,it,vi} from "vitest";
+import {networks,linkPresentation,socialConfig,type V2Section,type V2Link} from "@/lib/profile-v2";
+import {socialBrandPalette,resolveIconSemantic} from "@/lib/profile-icons";
+import {SemanticIcon} from "@/components/profile/SemanticIcon";
+import {SocialIconSurface} from "@/components/profile/SocialIconSurface";
+import {EssentialSectionAppearance} from "@/components/admin/profile-builder/EssentialAppearance";
+import {VisualChoice} from "@/components/admin/profile-builder/VisualControls";
+import {V2SectionContent} from "@/components/profile/V2SectionContent";
+import {buildProfileViewModel} from "@/lib/profileView";
+import {profileDesign} from "@/lib/profile-design";
+const section:V2Section={id:"social",kind:"SOCIALS",singletonKey:"SOCIALS",internalName:"Socials",visibleTitle:null,position:0,isVisible:true,items:[],config:{visual:{layout:{before:0,gap:8}},containerStyle:"BRANDED",iconColor:"BRAND"}};
+it.each(networks)("supports %s save validation, recognizable logo and branded surface",network=>{
+ expect(linkPresentation.parse({width:"FULL",iconMode:"DEFAULT",customIconAssetId:null,socialSectionId:"social",socialNetwork:network,v2IsVisible:true}).socialNetwork).toBe(network);
+ const html=renderToStaticMarkup(<SocialIconSurface config={section.config} network={network}><SemanticIcon type="CUSTOM" network={network} iconColor="MONOCHROME"/></SocialIconSurface>);
+ expect(html).toContain('data-style="BRANDED"');
+ expect(html).toContain(socialBrandPalette[network].background);
+ expect(html).toContain(socialBrandPalette[network].foreground);
+ expect(html).toContain('data-icon-semantic="'+network+'"');
+ expect(html).not.toContain("v2-system-icon");
+});
+it("keeps legacy default/custom fills and resolves popular platform URLs",()=>{
+ expect(socialConfig.parse({}).containerStyle).toBe("ICON_ONLY");
+ const html=renderToStaticMarkup(<SocialIconSurface config={{containerStyle:"FILLED",containerColor:"#123456"}} network="PINTEREST">icon</SocialIconSurface>);
+ expect(html).toContain("--social-surface:#123456");
+ expect(resolveIconSemantic("CUSTOM",null,"https://www.pinterest.com/example")).toBe("PINTEREST");
+ expect(resolveIconSemantic("CUSTOM",null,"https://twitch.tv/example")).toBe("TWITCH");
+ expect(resolveIconSemantic("CUSTOM",null,"https://x.com/example")).toBe("X");
+});
+it("brand fill updates only local section presentation, preserving spacing",()=>{
+ const change=vi.fn();let tree!:TestRenderer.ReactTestRenderer;
+ act(()=>{tree=TestRenderer.create(<EssentialSectionAppearance section={section} global={{version:1}} onChange={change}/>)});
+ act(()=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label==="Icon container")!.props.onChange("BRANDED"));
+ expect(change.mock.lastCall![0].config).toEqual(section.config);
+ act(()=>tree.unmount());
+});
+it("offers tight icon gap and independent size without changing space above",()=>{
+ const change=vi.fn();let tree!:TestRenderer.ReactTestRenderer;
+ act(()=>{tree=TestRenderer.create(<EssentialSectionAppearance section={section} global={{version:1}} onChange={change}/>)});
+ const choices=tree.root.findAllByType(VisualChoice);
+ const gap=choices.find(n=>n.props.label==="Icon gap")!;
+ expect(gap.props.options.find((o:{label:string})=>o.label==="Compact").value).toBe("2");
+ act(()=>gap.props.onChange("2"));
+ expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:0,gap:2});
+ act(()=>choices.find(n=>n.props.label==="Social icon size")!.props.onChange("LARGE"));
+ expect(change.mock.lastCall![0].config.iconSize).toBe("LARGE");
+ expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:0,gap:8});
+ act(()=>tree.unmount());
+});
+it("full Socials rendering uses contrasting logos rather than colored glyphs on brand fills",()=>{
+ const link:V2Link={id:"pinterest",type:"CUSTOM",label:"Pinterest",url:"https://pinterest.com/example",isActive:true,width:"FULL",iconMode:"DEFAULT",customIconAssetId:null,iconUrl:null,socialSectionId:"social",socialNetwork:"PINTEREST",v2IsVisible:true};
+ const business={name:"Example",businessType:null,profile:{bio:null,logoUrl:null,coverImageUrl:null,backgroundImageUrl:null,themeColor:null,backgroundType:"SOLID" as const,backgroundColor:null,backgroundGradient:null,backgroundMode:"LIGHT" as const,displayName:"Example",phone:null,email:null,whatsapp:null,website:null,address:null,googleMapsUrl:null,links:[]},v2:{version:2 as const,revision:0,theme:"CLASSIC",design:profileDesign.parse({visual:{version:1,socials:{action:{iconColor:"#333333"}}}}),sections:[section],links:[link]}};
+ const html=renderToStaticMarkup(<V2SectionContent section={section} business={business} viewModel={buildProfileViewModel(business)} menuAvailable={false} slug="example"/>);
+ expect(html).toContain("--social-surface:#E60023");
+ expect(html).toContain("color:#FFFFFF");
+ expect(html).not.toContain("color:#E60023");
+ expect(html).toContain("--social-space-before:0px");
+ expect(html).toContain("gap:8px");
+});

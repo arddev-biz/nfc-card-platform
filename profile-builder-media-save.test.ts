@@ -1,0 +1,31 @@
+import {beforeEach,expect,it,vi} from "vitest";
+import {profileDesign} from "@/lib/profile-design";
+import type {BuilderSaveDraft} from "@/lib/profile-builder-draft";
+const m=vi.hoisted(()=>({transaction:vi.fn(),organizationUpdate:vi.fn(),profile:vi.fn(),update:vi.fn(),itemCreate:vi.fn(),itemUpdate:vi.fn(),imageCreate:vi.fn(),imageUpdate:vi.fn(),imageDelete:vi.fn(),asset:vi.fn(),sectionDelete:vi.fn(),linkDelete:vi.fn()}));
+vi.mock("@/lib/db",()=>({db:{$transaction:m.transaction}}));
+import {saveBuilderDraft} from "@/lib/services/profile-builder-save";
+const image={id:"photo",assetId:"asset",position:0,alt:"Old",caption:null,destinationUrl:null,asset:{url:"https://example.com/old.png"}};
+const item={id:"item",kind:"CAROUSEL",position:0,width:"FULL",isVisible:true,config:{},referencedProfileLinkId:null,images:[image,{...image,id:"removed"}]};
+const section={id:"section",kind:"CUSTOM",singletonKey:null,internalName:"Gallery",visibleTitle:null,isVisible:true,position:0,config:{},items:[item]};
+const profile={id:"profile",builderVersion:2,layoutRevision:0,theme:"CLASSIC",sections:[section],links:[],logoUrl:null,coverImageUrl:null,backgroundImageUrl:null};
+const {position:sectionPosition,...sectionDraft}=section;
+const {position:itemPosition,images:itemImages,...itemDraft}=item;
+const {position:imagePosition,asset:imageAsset,...imageDraft}=image;
+const draft=():BuilderSaveDraft=>({revision:0,profile:{displayName:"Test",bio:"",phone:"",email:"",whatsapp:"",website:"",address:"",googleMapsUrl:"",themeColor:null,logoUrl:null,coverImageUrl:null,backgroundImageUrl:"https://example.com/bg.png"},design:profileDesign.parse({visual:{version:1,canvas:{background:"IMAGE"}}}),menu:null,links:[],sections:[{...sectionDraft,items:[{...itemDraft,width:"FULL",kind:"CAROUSEL",images:[{...imageDraft,assetId:"replacement",alt:"Updated",caption:"Caption",destinationUrl:"https://example.com/link"},{...imageDraft,id:"new-image",assetId:"new-asset"}]}]}]});
+beforeEach(()=>{vi.resetAllMocks();m.profile.mockResolvedValue(profile);m.asset.mockResolvedValue({id:"asset"});m.itemUpdate.mockResolvedValue({id:"item"});m.itemCreate.mockResolvedValue({id:"created-item"});m.transaction.mockImplementation(async run=>run({$queryRaw:vi.fn(),organization:{update:m.organizationUpdate},businessProfile:{findUnique:m.profile,update:m.update},profileSection:{update:vi.fn(),delete:m.sectionDelete},profileSectionItem:{update:m.itemUpdate,create:m.itemCreate,delete:vi.fn()},profileItemImage:{create:m.imageCreate,update:m.imageUpdate,delete:m.imageDelete},profileAsset:{findFirst:m.asset},profileLink:{delete:m.linkDelete,updateMany:vi.fn()},menu:{findUnique:vi.fn().mockResolvedValue(null)}}))});
+it("saves image replacement, metadata, additions, order and removal in the shared transaction",async()=>{
+  await saveBuilderDraft("org",draft());
+  expect(m.imageUpdate).toHaveBeenCalledWith({where:{id:"photo"},data:{assetId:"replacement",position:0,alt:"Updated",caption:"Caption",destinationUrl:"https://example.com/link"}});
+  expect(m.imageCreate).toHaveBeenCalledWith({data:expect.objectContaining({businessProfileId:"profile",itemId:"item",assetId:"new-asset",position:1})});
+  expect(m.imageDelete).toHaveBeenCalledWith({where:{id:"removed"}});
+  expect(m.update).toHaveBeenCalledWith({where:{id:"profile"},data:expect.objectContaining({backgroundImageUrl:"https://example.com/bg.png",layoutRevision:{increment:1}})});
+});
+it("attaches images to the persisted ID of a newly created item",async()=>{
+  const input=draft();input.sections[0].items[0].id="new-item";input.sections[0].items[0].images=[{...imageDraft,id:"new-photo"}];await saveBuilderDraft("org",input);
+  expect(m.imageCreate).toHaveBeenCalledWith({data:expect.objectContaining({itemId:"created-item",businessProfileId:"profile"})});
+});
+it("rejects images belonging to another profile",async()=>{m.asset.mockResolvedValue(null);await expect(saveBuilderDraft("org",draft())).rejects.toThrow("uploaded for this profile");expect(m.imageCreate).not.toHaveBeenCalled()});
+it("deletes a custom section without deleting canonical links",async()=>{const input=draft();input.sections=[];await saveBuilderDraft("org",input);expect(m.sectionDelete).toHaveBeenCalledWith({where:{id:"section"}});expect(m.linkDelete).not.toHaveBeenCalled()});
+it("keeps background unchanged for older clients that omit the new optional field",async()=>{const input=draft();delete input.profile.backgroundImageUrl;await saveBuilderDraft("org",input);expect(m.update.mock.calls[0][0].data).not.toHaveProperty("backgroundImageUrl")});
+it("saves Business Type only on Organization in the existing transaction",async()=>{const input=draft();input.businessType="Restaurant";await saveBuilderDraft("org",input);expect(m.organizationUpdate).toHaveBeenCalledWith({where:{id:"org"},data:{businessType:"Restaurant"}});expect(m.update.mock.calls[0][0].data).not.toHaveProperty("businessType")});
+it("preserves Business Type for clients that omit it",async()=>{await saveBuilderDraft("org",draft());expect(m.organizationUpdate).not.toHaveBeenCalled()});

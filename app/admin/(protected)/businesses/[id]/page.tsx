@@ -1,4 +1,6 @@
 import { SubscriptionPlanControl } from "@/components/admin/SubscriptionPlanControl";
+import {requireAdminSession} from "@/lib/auth/session";
+import {listCustomThemes} from "@/lib/services/custom-themes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrganizationById, listOrganizations } from "@/lib/services/organizations";
@@ -41,6 +43,8 @@ export default async function BusinessEditorPage({
   const availability = computeAvailabilityFromViewModel(business, viewModel, menuAvailable);
   const blocks = business.v2?.version === 2 ? [] : await getResolvedBlockLayout(organization.id, availability);
   const latestSubscription = organization.subscriptions[0] ?? null;
+  const actor=await requireAdminSession();
+  const customThemes=business.v2?.version===2?await listCustomThemes():[];
   const reassignTargets = allOrganizations
     .filter((candidate) => candidate.id !== organization.id && candidate.status !== "ARCHIVED")
     .map((candidate) => ({ id: candidate.id, name: candidate.name }));
@@ -52,6 +56,7 @@ export default async function BusinessEditorPage({
           Business identity
         </h2>
         <BusinessAdminForm
+          showBusinessType={business.v2?.version!==2}
           organizationId={organization.id}
           initialValues={{
             businessName: organization.name,
@@ -128,11 +133,11 @@ export default async function BusinessEditorPage({
   );
 
   return (
-    <div className="space-y-6">
-      <Link href="/admin/businesses" className="text-sm hover:underline">← Back to Businesses</Link>
+    <div className="space-y-4">
+      {business.v2?.version !== 2 && <><Link href="/admin/businesses" className="text-sm hover:underline">← Back to Businesses</Link>
       <PageHeader
         title={organization.name}
-        description="Manage the public profile, design, layout, links, menu, and administrative details."
+        description="Build and preview the public profile."
         actions={
           <div className="flex items-center gap-3">
             <Badge tone={organizationStatusTone(organization.status)}>{organization.status}</Badge>
@@ -148,7 +153,7 @@ export default async function BusinessEditorPage({
             )}
           </div>
         }
-      />
+      /></>}
 
       {searchParams.created === "1" && (
         <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -161,6 +166,8 @@ export default async function BusinessEditorPage({
       )}
 
       <ProfileBuilderShell
+        customThemes={customThemes}
+        isSuperAdmin={actor.role==="SUPER_ADMIN"}
         organizationId={organization.id}
         businessSlug={organization.slug}
         business={business}
@@ -169,8 +176,11 @@ export default async function BusinessEditorPage({
         menuAvailable={menuAvailable}
         isMenuEnabled={menuState.isEnabled}
         menu={menuState.menu}
-        adminPanel={adminPanel}
       />
+      <details className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-card)] p-4">
+        <summary className="cursor-pointer font-medium">Business administration</summary>
+        <div className="mt-5 space-y-6">{adminPanel}</div>
+      </details>
     </div>
   );
 }

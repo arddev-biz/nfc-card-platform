@@ -104,3 +104,20 @@ describe("V2 transactional ownership and persistence",()=>{
     expect(m.itemCreate).not.toHaveBeenCalled();
   });
 });
+it("validates and owns section link overrides before writing JSON",async()=>{
+  await mutateV2("org",0,{op:"section-update",id:"custom",data:{internalName:"Custom",visibleTitle:null,isVisible:true,config:{visual:{layout:{mode:"GRID",columns:3,mobileColumns:1}},linkStyles:{one:{subtitle:"Description",surface:{variant:"GLASS",opacity:25}}}}}});
+  expect(m.sectionUpdate.mock.calls[0][0].data.config).toMatchObject({visual:{layout:{columns:3}},linkStyles:{one:{subtitle:"Description"}}});
+  m.sectionUpdate.mockClear();
+  await expect(mutateV2("org",0,{op:"section-update",id:"custom",data:{internalName:"Custom",visibleTitle:null,isVisible:true,config:{linkStyles:{foreign:{subtitle:"No"}}}}})).rejects.toThrow("not found");
+  expect(m.sectionUpdate).not.toHaveBeenCalled();
+});
+it("rejects invalid item visual values in the service before a Prisma write",async()=>{
+  await expect(mutateV2("org",0,{op:"item-create",sectionId:"custom",data:{kind:"LINK",width:"FULL",isVisible:true,referencedProfileLinkId:null,config:{label:"Test",url:"https://example.com",visual:{surface:{radius:999}}}}})).rejects.toThrow();
+  expect(m.itemCreate).not.toHaveBeenCalled();
+});
+it("removes only stale presentation metadata when its canonical link is explicitly deleted",async()=>{
+  profile.sections=[core,{...custom,config:{visual:{layout:{mode:"GRID"}},linkStyles:{one:{subtitle:"First"},two:{subtitle:"Second"}}}}];
+  await mutateV2("org",0,{op:"link-delete",id:"one"});
+  expect(m.sectionUpdate.mock.calls[0][0].data.config).toEqual({visual:{layout:{mode:"GRID"}},linkStyles:{two:{subtitle:"Second"}}});
+  expect(m.linkDelete).toHaveBeenCalledWith({where:{id:"one"}});
+});

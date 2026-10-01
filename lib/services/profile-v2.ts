@@ -84,11 +84,13 @@ export async function mutateV2(organizationId: string, revision: number, command
         if (command.kind === "SOCIALS") await tx.profileSection.updateMany({ where: owner, data: { position: { increment: 1 } } });
         await tx.profileSection.create({ data: { ...owner, kind: command.kind, singletonKey: command.kind === "SOCIALS" ? "SOCIALS" : null,
           internalName: command.kind === "SOCIALS" ? "Socials" : "New section", position: command.kind === "SOCIALS" ? 0 : appendPosition(p.sections),
-          isVisible: true, config: parseSectionConfig(command.kind === "SOCIALS" ? "SOCIALS" : null, {}) } });
+          isVisible: command.kind === "SOCIALS", config: parseSectionConfig(command.kind === "SOCIALS" ? "SOCIALS" : null, {}) } });
         break;
       case "section-update": {
         const s = section(command.id);
-        await tx.profileSection.update({ where: { id: s.id }, data: { ...command.data, config: parseSectionConfig(s.singletonKey, command.data.config) } });
+        const config=parseSectionConfig(s.singletonKey,command.data.config);
+        if(config.linkStyles)for(const id of Object.keys(config.linkStyles))link(id);
+        await tx.profileSection.update({ where: { id: s.id }, data: { ...command.data, config } });
         break;
       }
       case "section-delete": {
@@ -135,7 +137,7 @@ export async function mutateV2(organizationId: string, revision: number, command
       }
       case "image-create": {
         const i = item(command.itemId);
-        if (!["IMAGE", "CAROUSEL"].includes(i.kind) || i.images.length >= (i.kind === "IMAGE" ? 1 : 20)) throw new V2Error("Image limit reached.");
+        if ((!["IMAGE", "CAROUSEL"].includes(i.kind) && !(i.kind==="TEXT"&&itemConfigs.TEXT.safeParse(i.config).success&&object(i.config).testimonial)) || i.images.length >= (i.kind === "CAROUSEL" ? 20 : 1)) throw new V2Error("Image limit reached.");
         await asset(command.data.assetId);
         await tx.profileItemImage.create({ data: { ...owner, itemId: i.id, position: appendPosition(i.images), ...command.data } }); break;
       }
@@ -163,6 +165,13 @@ export async function mutateV2(organizationId: string, revision: number, command
         link(command.id);
         // Keep custom actions but hide them when their referenced canonical link is removed.
         await tx.profileSectionItem.updateMany({ where: { ...owner, referencedProfileLinkId: command.id }, data: { referencedProfileLinkId: null, isVisible: false } });
+        for(const section of p.sections){
+          const config=object(section.config), styles=config.linkStyles;
+          if(styles&&typeof styles==="object"&&!Array.isArray(styles)&&Object.prototype.hasOwnProperty.call(styles,command.id)){
+            const next:Record<string,unknown>={...styles};delete next[command.id];
+            await tx.profileSection.update({where:{id:section.id},data:{config:{...config,linkStyles:next} as Prisma.InputJsonObject}});
+          }
+        }
         await tx.profileLink.delete({ where: { id: command.id } }); break;
       }
       case "link-order": {
