@@ -32,7 +32,7 @@ it("keeps legacy default/custom fills and resolves popular platform URLs",()=>{
 it("brand fill updates only local section presentation, preserving spacing",()=>{
  const change=vi.fn();let tree!:TestRenderer.ReactTestRenderer;
  act(()=>{tree=TestRenderer.create(<EssentialSectionAppearance section={section} global={{version:1}} onChange={change}/>)});
- act(()=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label==="Icon container")!.props.onChange("BRANDED"));
+ act(()=>tree.root.findAllByType("input").find(n=>n.props.type==="checkbox"&&n.parent?.children.includes("Customize this section"))!.props.onChange({target:{checked:true}}));act(()=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label==="Icon background")!.props.onChange("BRANDED"));
  expect(change.mock.lastCall![0].config).toEqual(section.config);
  act(()=>tree.unmount());
 });
@@ -44,8 +44,8 @@ it("offers tight icon gap and independent size without changing space above",()=
  expect(gap.props.options.find((o:{label:string})=>o.label==="Compact").value).toBe("2");
  act(()=>gap.props.onChange("2"));
  expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:0,gap:2});
- act(()=>choices.find(n=>n.props.label==="Social icon size")!.props.onChange("LARGE"));
- expect(change.mock.lastCall![0].config.iconSize).toBe("LARGE");
+ act(()=>choices.find(n=>n.props.label==="Social icon size")!.props.onChange("36"));
+ expect(change.mock.lastCall![0].config.visual.action.iconSize).toBe(36);
  expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:0,gap:8});
  act(()=>tree.unmount());
 });

@@ -7,6 +7,18 @@ import { PATCH } from "@/app/api/admin/businesses/[id]/verification/route";
 const request=(body:unknown)=>new NextRequest("http://localhost/api/admin/businesses/test/verification",{method:"PATCH",body:JSON.stringify(body)});
 beforeEach(()=>{vi.resetAllMocks();m.admin.mockResolvedValue({role:"SUPER_ADMIN"});m.update.mockImplementation(async({data})=>data);});
 describe("Super Admin verification API to persistence",()=>{
+  it("saves vector style and exact size in existing visual JSON only",async()=>{
+    m.find.mockResolvedValue({theme:"CLASSIC",designConfig:{visual:{version:1,badge:{color:"#123456",placement:"NAME"},hero:{padding:20}}}});
+    const response=await PATCH(request({isVerified:true,verificationBadge:"CRYSTAL",verificationBadgeSize:27,verificationColor:"#abcdef"}),{params:{id:"test"}});
+    expect(response.status).toBe(200);const data=m.update.mock.calls[0][0].data;
+    expect(data.designConfig.visual.badge).toEqual({variant:"CRYSTAL",size:27,color:"#abcdef",placement:"NAME"});expect(data.designConfig.visual.hero.padding).toBe(20);expect(data).not.toHaveProperty("verificationBadgeSize");
+  });
+  it.each([true,false])("owners cannot alter verification or badge appearance (%s)",async isVerified=>{
+    m.admin.mockResolvedValue({role:"BUSINESS_OWNER"});expect((await PATCH(request({isVerified,verificationBadge:"CRYSTAL",verificationBadgeSize:32}),{params:{id:"test"}})).status).toBe(401);expect(m.update).not.toHaveBeenCalled();expect(m.find).not.toHaveBeenCalled();
+  });
+  it.each([0,15,41,100,"24"])("rejects invalid badge size %s",async verificationBadgeSize=>{
+    expect((await PATCH(request({isVerified:true,verificationBadgeSize}),{params:{id:"test"}})).status).toBe(400);expect(m.update).not.toHaveBeenCalled();
+  });
   it("saves the beta alternative while preserving existing design and content",async()=>{
     m.find.mockResolvedValue({theme:"CLASSIC",designConfig:{theme:"CLASSIC",visual:{version:1,canvas:{color:"#123456"},badge:{size:30}}}});
     const response=await PATCH(request({isVerified:true,verificationBadge:"BETA"}),{params:{id:"test"}});

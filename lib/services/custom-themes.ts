@@ -14,7 +14,7 @@ export async function listCustomThemes(){
 export async function materializeStarterThemes(){
  const entries=starterThemeLibrary.map(entry=>{
   const preset=profilePresets.find(p=>p.name===entry.name)!;
-  const value=createCustomThemeSchema.parse({name:entry.name,design:snapshotCurrentDesign(profileDesign.parse({visual:preset.visual}),null)});
+  const value=createCustomThemeSchema.parse({name:entry.name,design:snapshotCurrentDesign(profileDesign.parse({visual:preset.visual,footer:{visual:{decoration:"NONE",layout:{before:0,padding:0},surface:{variant:"TRANSPARENT"}}}}),null)});
   return {...entry,nameKey:themeNameKey(value.name),description:null,design:value.design as Prisma.InputJsonValue};
  });
  return db.$transaction(async tx=>{

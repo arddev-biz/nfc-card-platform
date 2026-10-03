@@ -22,6 +22,22 @@ export async function createLead(input: LeadSubmissionInput) {
   return db.lead.create({ data: input });
 }
 
+export async function countUnseenLeads() {
+  return db.lead.count({ where: { seenAt: null } });
+}
+
+export async function unseenLeadSnapshot() {
+  return db.lead.findMany({ where: { seenAt: null }, select: { id: true } });
+}
+
+export async function acknowledgeLeads(ids: string[]) {
+  if (ids.length) await db.lead.updateMany({
+    where: { id: { in: ids }, seenAt: null },
+    data: { seenAt: new Date() },
+  });
+  return countUnseenLeads();
+}
+
 export async function listLeads(status?: LeadStatus) {
   return db.lead.findMany({
     where: status ? { status } : undefined,

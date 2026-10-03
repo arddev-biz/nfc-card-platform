@@ -22,7 +22,7 @@ it("changes only bottom padding; spacing presets preserve the explicit override"
  act(()=>control.props.onChange(0));
  expect(change.mock.lastCall![0].visual.hero).toEqual({...design.visual!.hero,paddingBottom:0});
  act(()=>tree.update(<HeaderVisualControls value={change.mock.lastCall![0]} onChange={change}/>));
- act(()=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label==="Header spacing")!.props.onChange("32"));
+ act(()=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label==="Header inside spacing")!.props.onChange("32"));
  expect(change.mock.lastCall![0].visual.hero).toMatchObject({padding:32,paddingBottom:0,gap:8});
  act(()=>tree.unmount());
 });

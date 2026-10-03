@@ -208,7 +208,7 @@ export function BusinessForm({
 
         <div>
           <label htmlFor="slug" className="block text-sm font-medium text-[var(--admin-text)]">
-            Business slug
+            Profile URL
           </label>
           <Input
             id="slug"
@@ -248,10 +248,10 @@ export function BusinessForm({
         </div>
       </section>
 
+      <details className="space-y-4" open={mode==="edit"}>
+        <summary className="cursor-pointer font-semibold">Contact &amp; location (optional)</summary>
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">
-          Contact Information
-        </h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">Contact Information</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -340,7 +340,8 @@ export function BusinessForm({
         </div>
       </section>
 
-      <section className="space-y-4">
+      </details>
+      {mode==="edit"&&<><section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--admin-text-secondary)]">Profile</h2>
 
         <div>
@@ -363,7 +364,7 @@ export function BusinessForm({
         </div>
 
         <p className="text-xs text-[var(--admin-text-secondary)]">
-          Logo and cover image upload will be added in a later phase.
+          Logo, cover and the full design are available in Profile Builder.
         </p>
       </section>
 
@@ -476,6 +477,8 @@ export function BusinessForm({
         </div>
       </section>
 
+      </>}
+      {mode==="create"&&<p className="text-sm text-[var(--admin-text-secondary)]">Next, add your logo, cover and a theme in Profile Builder. You can finish contact details there too.</p>}
       <div className="flex items-center gap-3 border-t border-[var(--admin-border)] pt-6">
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting

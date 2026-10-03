@@ -28,7 +28,7 @@ it("keeps saved footer data in the shared renderer without exposing platform pol
 it("offers Footer as a fixed destination, edits it centrally and keeps Admin policy outside structure",()=>{
   act(()=>{tree=TestRenderer.create(<ToastProvider><ProfileBuilderShell organizationId="test" businessSlug="test" business={business} initialBlocks={[]} menuAvailable={false} isMenuEnabled={false} menu={null} adminPanel={<p>Administrative policy</p>}/></ToastProvider>);});
   const structure=tree.root.findByProps({"aria-label":"Profile structure"});
-  const footer=structure.findByProps({className:"builder-v3-section-row builder-v3-footer-row"});
+  const footer=structure.find(node=>node.type==="button"&&node.props.className?.includes("builder-v3-footer-row"));
   expect(footer.findByProps({"aria-label":"Fixed at bottom"})).toBeDefined();
   expect(structure.findAllByType(FooterEditor)).toHaveLength(0);
   expect(structure.findAllByType("p").some(node=>node.children.includes("Administrative policy"))).toBe(false);

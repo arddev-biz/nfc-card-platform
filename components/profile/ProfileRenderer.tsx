@@ -1,5 +1,6 @@
 import "./ProfileVisual.css";
 import {VisualHeader} from "./VisualHeader";
+import {FooterDecoration} from "./FooterDecoration";
 import {textCSS,roleTextCSS,surfaceCSS,layoutCSS} from "@/lib/profile-visual";
 import type {CSSProperties} from "react";
 import {profilePresentation,resolveProfileBackground,backgroundBlurRadius} from "@/lib/profile-presentation";
@@ -305,8 +306,7 @@ export function ProfileRenderer({ business, viewModel, blocks, menuAvailable, sl
           )}
 
           {(!isV2||resolveFooter(design.footer,business.branding?.platformName))&&<footer style={isV2?{...surfaceCSS(design.footer?.visual?.surface),...layoutCSS(design.footer?.visual?.layout),...roleTextCSS(visual?.typography,"caption"),...textCSS(design.footer?.visual?.text)}:undefined} className={`pt-8 text-center text-xs ${mutedTextClass}`}>
-            {isV2&&design.footer?.visual?.decoration&&design.footer.visual.decoration!=="NONE"&&<div aria-hidden="true" className="mb-3">{({LINE:"—",HEART:"♥",STAR:"★"} as const)[design.footer.visual.decoration]}</div>}
-            {isV2?resolveFooter(design.footer,business.branding?.platformName):profile.displayName || business.name}
+            {isV2?<FooterDecoration decoration={design.footer?.visual?.decoration} color={design.footer?.visual?.surface?.color}>{resolveFooter(design.footer,business.branding?.platformName)}</FooterDecoration>:profile.displayName || business.name}
           </footer>}
         </div>
       </div>

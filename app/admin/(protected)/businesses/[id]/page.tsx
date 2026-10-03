@@ -166,6 +166,7 @@ export default async function BusinessEditorPage({
       )}
 
       <ProfileBuilderShell
+        newProfile={searchParams.created === "1"}
         customThemes={customThemes}
         isSuperAdmin={actor.role==="SUPER_ADMIN"}
         organizationId={organization.id}

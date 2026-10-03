@@ -15,11 +15,14 @@ function resolveTheme(preference: AdminThemePreference): "light" | "dark" {
 }
 
 interface AdminThemeContextValue {
+  resolved: "light" | "dark";
   preference: AdminThemePreference;
   setPreference: (preference: AdminThemePreference) => void;
 }
 
 const AdminThemeContext = createContext<AdminThemeContextValue | null>(null);
+
+export function useOptionalAdminTheme() { return useContext(AdminThemeContext); }
 
 export function useAdminTheme(): AdminThemeContextValue {
   const context = useContext(AdminThemeContext);
@@ -83,7 +86,7 @@ export function AdminThemeProvider({ children }: { children: React.ReactNode }) 
     localStorage.setItem(STORAGE_KEY, next);
   }
 
-  const value = useMemo(() => ({ preference, setPreference }), [preference]);
+  const value = useMemo(() => ({ preference, resolved, setPreference }), [preference, resolved]);
 
   return (
     <AdminThemeContext.Provider value={value}>

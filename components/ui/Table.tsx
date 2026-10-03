@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 export function TableCard({ children }: { children: React.ReactNode }) {
   return (
     <Card className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-[var(--admin-border)] text-sm">{children}</table>
+      <table className="admin-data-table min-w-full divide-y divide-[var(--admin-border)] text-sm">{children}</table>
     </Card>
   );
 }

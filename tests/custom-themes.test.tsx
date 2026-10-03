@@ -11,7 +11,7 @@ it("copies unsaved design without content, IDs, assets or policy",()=>{
  const source=design();source.visual!.canvas!.color="#123456";
  const snapshot=snapshotCurrentDesign(source,"#abcdef");
  expect(snapshot.visual.canvas?.color).toBe("#123456");expect(snapshot.accentColor).toBe("#abcdef");
- expect(JSON.stringify(snapshot)).not.toMatch(/Private|customThemeId|tagline|description|showBusinessType|badge|footer|https?:|assetId|sectionId/);
+ expect(JSON.stringify(snapshot)).not.toMatch(/Private|customThemeId|tagline|description|showBusinessType|badge|isVerified|verificationTooltip|footer|https?:|assetId|sectionId/);
  source.visual!.canvas!.color="#ffffff";expect(snapshot.visual.canvas?.color).toBe("#123456");
 });
 it("rejects non-allowlisted payloads on save and read",()=>{
@@ -24,14 +24,14 @@ it("rejects non-allowlisted payloads on save and read",()=>{
 it("preserves target content and badge when applying",()=>{
  const source=design(),snapshot=snapshotCurrentDesign(profileDesign.parse({visual:profilePresets[1].visual}),"#123456");
  const applied=applyCustomTheme(source,snapshot);
- expect(applied.visual?.hero?.tagline).toBe("Private business");expect(applied.footer).toEqual(source.footer);expect(applied.visual?.badge).toEqual(source.visual?.badge);
+ expect(applied.visual?.hero?.tagline).toBe("Private business");expect(applied.footer).toMatchObject({text:source.footer?.text,hidden:source.footer?.hidden});expect(applied.footer?.visual?.decoration).toBe("NONE");expect(applied.visual?.badge).toEqual(source.visual?.badge);
  expect(applied.visual?.canvas).toEqual(snapshot.visual.canvas);expect(source.visual?.canvas?.color).not.toBe(applied.visual?.canvas?.color);
 });
 it("allows photo geometry but rejects unresolved legacy backgrounds",()=>{
  const target={...design(),hoverStyle:"GLOW" as const,backgroundPreset:"AURORA" as const};
  const plain=snapshotCurrentDesign(design(),null);
  const applied=applyCustomTheme(target,plain);
- expect(applied.hoverStyle).toBeUndefined();expect(applied.backgroundPreset).toBeUndefined();expect(snapshotCurrentDesign(applied,null)).toEqual(plain);
+ expect(applied.hoverStyle).toBeUndefined();expect(applied.backgroundPreset).toBeUndefined();expect(snapshotCurrentDesign(applied,null)).toEqual({...plain,footerVisual:applied.footer?.visual});
  const source=design();source.visual!.canvas!.background="IMAGE";expect(snapshotCurrentDesign(source,null).visual.canvas?.background).toBe("IMAGE");
  expect(themeSnapshotSchema.safeParse({settings:{},visual:{version:1},accentColor:null}).success).toBe(false);
  source.visual!.canvas!.background="EXISTING";expect(()=>snapshotCurrentDesign(source,null)).toThrow();

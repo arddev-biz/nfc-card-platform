@@ -5,12 +5,12 @@ import type { LinkType } from "@prisma/client";
 import {SemanticIcon} from "./SemanticIcon";
 import { mediaConfig, type V2Image } from "@/lib/profile-v2";
 
-export function ProfileLinkIcon({ type, mode, url, network, size = 24, iconSet = "FEATHER", iconStyle = "OUTLINE", iconColor = "MONOCHROME", destination }: { type: LinkType | "MENU"; mode: string; url: string | null; network?: string | null; size?: number; iconSet?:string; iconStyle?:string; iconColor?:string; destination?:string }) {
+export function ProfileLinkIcon({ type, mode, url, network, size = 24, iconSet = "FEATHER", iconStyle = "OUTLINE", iconColor = "MONOCHROME", destination, brandArtwork }: { type: LinkType | "MENU"; mode: string; url: string | null; network?: string | null; size?: number; iconSet?:string; iconStyle?:string; iconColor?:string; destination?:string; brandArtwork?:boolean }) {
   const [broken, setBroken] = useState<string | null>(null);
   if (mode === "NONE") return null;
   return mode === "CUSTOM" && url && broken !== url
     ? <Image src={url} alt="" width={size} height={size} className="shrink-0 rounded object-cover" onError={() => setBroken(url)} />
-    : <SemanticIcon type={type} network={network} destination={destination} size={size} iconSet={iconSet} iconStyle={iconStyle} iconColor={iconColor}/>;
+    : <SemanticIcon type={type} network={network} destination={destination} size={size} iconSet={iconSet} iconStyle={iconStyle} iconColor={iconColor} brandArtwork={brandArtwork}/>;
 }
 export function ProfileMedia({ images, config, carousel = false }: { images: V2Image[]; config: unknown; carousel?: boolean }) {
   const result = mediaConfig.safeParse(config);

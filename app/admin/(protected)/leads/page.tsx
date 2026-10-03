@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { listLeads } from "@/lib/services/leads";
+import { requireAdminSession } from "@/lib/auth/session";
+import { AcknowledgeLeadSnapshot } from "@/components/admin/LeadNotifications";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatDate } from "@/lib/format";
@@ -33,6 +35,7 @@ export default async function LeadsListPage({
   searchParams: { status?: string };
 }) {
   const validStatuses: LeadStatus[] = ["NEW", "CONTACTED", "CONVERTED", "CLOSED"];
+  await requireAdminSession();
   const activeStatus =
     searchParams.status && validStatuses.includes(searchParams.status as LeadStatus)
       ? (searchParams.status as LeadStatus)
@@ -42,6 +45,7 @@ export default async function LeadsListPage({
 
   return (
     <div>
+      <AcknowledgeLeadSnapshot/>
       <h1 className="text-xl font-semibold text-[var(--admin-text)]">Leads</h1>
       <p className="mt-1 text-sm text-[var(--admin-text-secondary)]">
         Submissions from the public contact/order form.

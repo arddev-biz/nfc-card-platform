@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {badgeVariants} from "./badge-styles";
 import type { CSSProperties } from "react";
 
 // Optional values inherit. No defaults are written over a saved legacy design.
@@ -30,6 +31,7 @@ export const visualAction = z.object({
   iconSize: px(48, 16).optional(), iconContainerSize: px(72, 24).optional(),
   iconRadius: px(36).optional(), iconColor: color.optional(), iconBackground: color.optional(),
   textColor: color.optional(), secondaryColor: color.optional(), chevron: z.boolean().optional(),
+  brandArtwork: z.boolean().optional(), chevronSize: px(32, 12).optional(), chevronColor: color.optional(),
 }).strict();
 export const visualOverride = z.object({
   surface: visualSurface.optional(), layout: visualLayout.optional(),
@@ -47,6 +49,7 @@ export const heroDesign = z.object({
   height: px(600, 80).optional(), mobileHeight: px(500, 80).optional(),
   fit: z.enum(["COVER", "CONTAIN"]).optional(), focalX: px(100).optional(), focalY: px(100).optional(),
   overlayColor: color.optional(), overlayOpacity: px(90).optional(),
+  fade: px(100).optional(), avatarBackground: color.optional(),
   avatarSize: px(240, 40).optional(), avatarRadius: px(120).optional(),
   avatarBorder: px(8).optional(), avatarBorderColor: color.optional(),
   avatarShadow: z.enum(["NONE", "SOFT", "LIFTED"]).optional(), overlap: px(120).optional(),
@@ -58,7 +61,7 @@ export const heroDesign = z.object({
   minHeight: px(600).optional(),
 }).strict();
 export const badgeDesign = z.object({
-  variant: z.enum(["CIRCLE", "SEAL", "CHECK", "SHIELD", "BETA"]).optional(), size: px(40, 16).optional(),
+  variant: z.enum(badgeVariants).optional(), size: px(40, 16).optional(),
   color: color.optional(), checkColor: color.optional(), placement: z.enum(["NAME", "AVATAR"]).optional(),
 }).strict();
 export const canvasDesign = z.object({
@@ -84,7 +87,7 @@ export const profileVisual = z.object({
   socials: visualOverride.omit({layout:true}).optional(),
 }).strict();
 export const footerVisual = visualOverride.omit({action:true}).extend({
-  decoration: z.enum(["NONE", "LINE", "HEART", "STAR"]).optional(),
+  decoration: z.enum(["NONE", "LINE", "HEART", "STAR", "RULES", "CURVED_RULES"]).optional(),
 }).strict();
 export const mediaVisual = z.object({
   layout: z.enum(["CAROUSEL", "ROW", "GRID", "FEATURED"]).optional(),

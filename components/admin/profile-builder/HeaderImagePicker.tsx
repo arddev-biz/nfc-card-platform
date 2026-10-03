@@ -21,6 +21,6 @@ export function HeaderImagePicker({label,url,organizationId,onChange}:{label:"Lo
     {url?<Image unoptimized src={url} width={label==="Logo"?80:600} height={label==="Logo"?80:200} alt={`${label} preview`} className={label==="Logo"?"h-20 w-20 rounded-full object-cover":"h-24 w-full rounded-lg object-cover"}/>:<div className="builder-v3-note">No {label.toLowerCase()} selected.</div>}
     <label className="block text-sm cursor-pointer">{busy?"Uploading…":`Choose ${label.toLowerCase()}`}<input className="block mt-2 w-full text-xs" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event=>{const file=event.target.files?.[0];if(file)void upload(file);event.target.value=""}}/></label>
     {error&&<p role="alert" className="builder-v3-error">{error}</p>}
-    <p className="builder-v3-note">The profile image changes only after Save Changes.</p>
+    <p className="builder-v3-note">The image appears immediately in Preview. Save Changes to update the public profile.</p>
   </div>;
 }

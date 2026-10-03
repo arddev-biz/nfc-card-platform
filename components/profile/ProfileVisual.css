@@ -1,4 +1,11 @@
 /* Structural primitives only: no business or preset selectors. */
+.visual-footer-decoration {position:relative;isolation:isolate;}
+.visual-footer-decoration[data-curved="true"] {padding:54px 0 24px;}
+.visual-footer-curve {position:absolute;top:0;left:calc(0px - var(--visual-page-padding,20px));width:calc(100% + 2 * var(--visual-page-padding,20px));height:calc(100% + 48px);z-index:-1;pointer-events:none;}
+.visual-footer-rules {display:flex;align-items:center;justify-content:center;gap:20px;}
+.visual-footer-rules > span:first-child,.visual-footer-rules > span:last-child {height:1px;flex:0 1 36px;background:currentColor;opacity:.3;}
+.v2-action .visual-action-icon:has([data-icon-artwork="BRAND"][data-icon-semantic="INSTAGRAM"]) {background:linear-gradient(35deg,#ecaa58,#e62c56 40%,#7828b7 80%) !important;box-shadow:inset 0 1px 1px #ffffff20,0 0 12px #b0446920;}
+.v2-action [data-icon-artwork="BRAND"][data-icon-semantic="INSTAGRAM"] [data-brand-stroke] {stroke:#fff;}
 /* Shared geometry; inline section/item customizations retain priority. */
 .profile-v2[data-visual-version] .v2-grid,.profile-v2[data-visual-version] .visual-contact {display:grid;gap:var(--visual-gap,clamp(8px,calc(var(--visual-page-gap,16px) * .65),16px));}
 .profile-v2[data-visual-version] .visual-identity > h1 {margin-top:4px;max-width:100%;}

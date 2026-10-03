@@ -11,12 +11,12 @@ it("Socials spacing changes only the chosen field",()=>{
  act(()=>{tree=TestRenderer.create(<EssentialSectionAppearance section={social} global={{version:1}} onChange={change}/>)});
  const choice=(label:string)=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label===label)!;
  expect(choice("Space above").props.value).toBe("CUSTOM");
- expect(tree.root.findByType(ExactNumber).props.value).toBe(17);
+ expect(tree.root.findAllByType(ExactNumber).find(n=>n.props.label==="Custom space above")!.props.value).toBe(17);
  act(()=>choice("Space above").props.onChange("0"));
  expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:0,gap:24});
  act(()=>choice("Icon gap").props.onChange("8"));
  expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:17,gap:8});
- act(()=>tree.root.findByType(ExactNumber).props.onChange(37));
+ act(()=>tree.root.findAllByType(ExactNumber).find(n=>n.props.label==="Custom space above")!.props.onChange(37));
  expect(change.mock.lastCall![0].config.visual.layout).toEqual({before:37,gap:24});
  act(()=>tree.unmount());
 });
@@ -24,6 +24,7 @@ it("Custom selection preserves inherited spacing until edited",()=>{
  const change=vi.fn();let tree!:TestRenderer.ReactTestRenderer;
  act(()=>{tree=TestRenderer.create(<EssentialSectionAppearance section={{...social,config:{visual:{}}}} global={{version:1}} onChange={change}/>)});
  expect(change).not.toHaveBeenCalled();
+ act(()=>tree.root.findAllByType("input").find(n=>n.props.type==="checkbox"&&n.parent?.children.includes("Customize this section"))!.props.onChange({target:{checked:true}}));
  act(()=>tree.root.findAllByType(VisualChoice).find(n=>n.props.label==="Space above")!.props.onChange("CUSTOM"));
  expect(change).not.toHaveBeenCalled();
  act(()=>tree.unmount());

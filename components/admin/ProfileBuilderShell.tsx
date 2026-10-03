@@ -31,6 +31,7 @@ import { UploadActivityProvider } from "./profile-builder/UploadActivity";
 import type {CustomTheme} from "@/lib/custom-themes";
 
 interface ProfileBuilderShellProps {
+  newProfile?:boolean;
   customThemes?:CustomTheme[];
   isSuperAdmin?:boolean;
   organizationId: string;
@@ -127,7 +128,7 @@ function reconcileDesignDraft(
   };
 }
 
-export function ProfileBuilderShell(props:ProfileBuilderShellProps){return props.business.v2?.version===2?<UploadActivityProvider><BuilderV3 customThemes={props.customThemes} isSuperAdmin={props.isSuperAdmin} organizationId={props.organizationId} businessSlug={props.businessSlug} business={props.business} menuAvailable={props.menuAvailable} isMenuEnabled={props.isMenuEnabled} menu={props.menu}/></UploadActivityProvider>:<BuilderContent {...props}/>;}
+export function ProfileBuilderShell(props:ProfileBuilderShellProps){return props.business.v2?.version===2?<UploadActivityProvider><BuilderV3 newProfile={props.newProfile} customThemes={props.customThemes} isSuperAdmin={props.isSuperAdmin} organizationId={props.organizationId} businessSlug={props.businessSlug} business={props.business} menuAvailable={props.menuAvailable} isMenuEnabled={props.isMenuEnabled} menu={props.menu}/></UploadActivityProvider>:<BuilderContent {...props}/>;}
 function BuilderContent({
   organizationId,
   businessSlug,

@@ -23,7 +23,7 @@ afterEach(()=>{if(tree){act(()=>tree!.unmount());tree=undefined}vi.unstubAllGlob
 it("materializes six validated snapshots once without touching business data",async()=>{
  dbMocks.find.mockResolvedValue([]);dbMocks.create.mockResolvedValue({count:6});expect(await materializeStarterThemes()).toEqual({count:6});
  const entries=dbMocks.create.mock.lastCall?.[0].data;expect(entries).toHaveLength(6);
- for(const entry of entries){const original=starters.find(t=>t.id===entry.id)!;expect(entry.design).toEqual(original.design);expect(JSON.stringify(entry.design)).not.toMatch(/customThemeId|profileId|businessId|https?:/)}
+ for(const entry of entries){const original=starters.find(t=>t.id===entry.id)!;expect(entry.design).toEqual({...original.design,footerVisual:{decoration:"NONE",layout:{before:0,padding:0},surface:{variant:"TRANSPARENT"}}});expect(JSON.stringify(entry.design)).not.toMatch(/customThemeId|profileId|businessId|https?:/)}
  dbMocks.find.mockResolvedValue(starters.map(t=>({...t,nameKey:t.name.toLowerCase()})));await materializeStarterThemes();expect(dbMocks.create.mock.lastCall?.[0].data).toEqual([]);
 });
 it("preserves renamed/updated starters on explicit materialization and rejects name collisions atomically",async()=>{
@@ -35,7 +35,7 @@ it("never seeds during reads, so deleted starters stay deleted",async()=>{
 });
 it("renders exactly one Themes heading/grid with one instance of each theme and an add tile",()=>{
  const html=renderToStaticMarkup(<EssentialDesignEditor {...props()} customThemes={catalog} organizationId="org" backgroundUrl={null} coverUrl={null} onBackgroundChange={vi.fn()}/>);
- expect(html.match(/<h3>Themes<\/h3>/g)).toHaveLength(1);expect(html).not.toContain("Custom themes");expect(html.match(/class="builder-v3-themes"/g)).toHaveLength(1);
+ expect(html.match(/<summary[^>]*>Themes<\/summary>/g)).toHaveLength(1);expect(html).not.toContain("Custom themes");expect(html.match(/class="builder-v3-themes"/g)).toHaveLength(1);
  for(const theme of catalog){expect(html.match(new RegExp(`<strong>${theme.name}</strong>`,"g"))).toHaveLength(1);expect(html).toContain(`Theme actions for ${theme.name}`)}
  expect(html).toContain("border-style:dashed");expect(html).toContain("Save current design as theme");
 });

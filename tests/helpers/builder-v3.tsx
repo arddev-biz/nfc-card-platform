@@ -15,11 +15,11 @@ export const business={name:"Example",businessType:null,v2:data,profile:{display
 export const text=(node:TestRenderer.ReactTestInstance):string=>node.children.map(c=>typeof c==="string"?c:text(c)).join("");
 export function setup(){
  const request=vi.fn(),confirm=vi.fn(()=>true);
- vi.stubGlobal("fetch",(url:string,init?:{method?:string})=>!init?.method?Promise.resolve({ok:true,json:async()=>({themes:[]})}):request(url,init));vi.stubGlobal("window",{confirm,addEventListener:vi.fn(),removeEventListener:vi.fn(),matchMedia:()=>({matches:true,addEventListener:vi.fn(),removeEventListener:vi.fn()})});
+ vi.stubGlobal("fetch",(url:string,init?:{method?:string})=>!init?.method?Promise.resolve({ok:true,json:async()=>({themes:[]})}):request(url,init));vi.stubGlobal("window",{location:{href:"http://localhost/"},confirm,addEventListener:vi.fn(),removeEventListener:vi.fn(),matchMedia:()=>({matches:true,addEventListener:vi.fn(),removeEventListener:vi.fn()})});
  vi.stubGlobal("document",{addEventListener:vi.fn(),removeEventListener:vi.fn()});
  return {request,confirm};
 }
-export async function mount(){let tree!:TestRenderer.ReactTestRenderer;await act(async()=>{tree=TestRenderer.create(<ToastProvider><ProfileBuilderShell organizationId="org" businessSlug="example" business={business} initialBlocks={[]} menuAvailable={false} isMenuEnabled={false} menu={null} adminPanel={<p>Administrative policy</p>}/></ToastProvider>)});return tree;}
+export async function mount(newProfile=false){let tree!:TestRenderer.ReactTestRenderer;await act(async()=>{tree=TestRenderer.create(<ToastProvider><ProfileBuilderShell newProfile={newProfile} organizationId="org" businessSlug="example" business={business} initialBlocks={[]} menuAvailable={false} isMenuEnabled={false} menu={null} adminPanel={<p>Administrative policy</p>}/></ToastProvider>)});return tree;}
 export const region=(tree:TestRenderer.ReactTestRenderer,name:string)=>tree.root.findByProps({"aria-label":({structure:"Profile structure",editor:"Profile editor",preview:"Live preview"} as Record<string,string>)[name]});
 export const preview=(tree:TestRenderer.ReactTestRenderer)=>tree.root.findByType(ProfileRenderer).props;
 export async function click(tree:TestRenderer.ReactTestRenderer,label:string,scope=tree.root){const button=scope.findAllByType("button").find(n=>text(n).trim()===label);expect(button,label).toBeDefined();await act(async()=>{await button!.props.onClick()});}

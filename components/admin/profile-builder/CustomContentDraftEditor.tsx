@@ -11,13 +11,13 @@ const kinds={HEADING:"Heading",TEXT:"Text",LINK:"Button",IMAGE:"Image",CAROUSEL:
 type ContentKind=keyof typeof kinds;
 const newId=()=>`new-${crypto.randomUUID()}`;
 export function CustomContentDraftEditor({items,links=[],organizationId,onChange}:{items:V2Item[];links?:V2Link[];organizationId:string;onChange:(items:V2Item[])=>void}){
-  const [kind,setKind]=useState<ContentKind>("TEXT"),[advanced,setAdvanced]=useState(false);
+  const [kind,setKind]=useState<ContentKind>("TEXT"),[advanced,setAdvanced]=useState(false),[showChooser,setShowChooser]=useState(false);
   const latest=useRef(items);latest.current=items;
   const commit=(rows:V2Item[])=>{latest.current=rows;onChange(rows)};
   const update=(id:string,fn:(item:V2Item)=>V2Item)=>{if(!latest.current.some(item=>item.id===id))throw new Error("This item was removed before its upload finished.");commit(latest.current.map(item=>item.id===id?fn(item):item));};
   const add=(nextKind=kind)=>commit([...latest.current,{id:newId(),kind:nextKind,position:latest.current.length,width:"FULL",isVisible:true,config:itemConfigs[nextKind].parse({}),referencedProfileLinkId:null,images:[]}]);
   const chooser=<div className="flex flex-wrap items-end gap-3"><label className="text-sm space-y-2"><span className="block">Content type</span><select className="rounded-lg border bg-[var(--admin-input)] p-2" value={kind} onChange={event=>setKind(event.target.value as ContentKind)}>{Object.entries(kinds).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button type="button" className="builder-v3-add-link" onClick={()=>add()}><FiPlus size={16} aria-hidden="true"/> Add content</button><button type="button" className="text-sm" onClick={()=>setAdvanced(value=>!value)}>{advanced?"Hide advanced":"Advanced"}</button>{advanced&&<><button type="button" onClick={()=>{const id=newId();commit([...latest.current,{id,kind:"TEXT",position:latest.current.length,width:"FULL",isVisible:true,config:itemConfigs.TEXT.parse({testimonial:{author:""}}),referencedProfileLinkId:null,images:[]}])}}><FiPlus size={16} aria-hidden="true"/> Testimonial</button><button type="button" onClick={()=>add("LINK")}><FiPlus size={16} aria-hidden="true"/> Reuse saved link</button></>}</div>;
-  return <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3>Content</h3><button type="button" className="builder-v3-add-link" onClick={()=>add()}><FiPlus size={16} aria-hidden="true"/> Add content</button></div>
+  return <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><h3>Content</h3><button type="button" className="builder-v3-add-link" onClick={()=>setShowChooser(value=>!value)}><FiPlus size={16} aria-hidden="true"/> Add content</button></div>{showChooser&&chooser}
     <SortableList items={items} chromeIcons fallbackControls={false} label={item=>String(item.config.text||item.config.label||kinds[item.kind as ContentKind]||"Content")} onOrder={rows=>commit(rows.map((row,position)=>({...row,position})))}>
       {item=><div className="space-y-4 py-2"><div className="flex items-center justify-between gap-2"><strong>{kinds[item.kind as ContentKind]??"Existing content"}{!!item.config.visual&&<span className="builder-v3-override-badge ml-2">Item style</span>}</strong><label className="text-sm"><input type="checkbox" checked={item.isVisible} onChange={event=>update(item.id,row=>({...row,isVisible:event.target.checked}))}/> Show item</label></div>
         {["HEADING","TEXT","ICON_TEXT"].includes(item.kind)&&<><Field label={item.kind==="HEADING"?"Heading":"Text"} multiline={item.kind!=="HEADING"} value={String(item.config.text??"")} onChange={text=>update(item.id,row=>({...row,config:{...row.config,text}}))}/>{item.kind==="ICON_TEXT"&&<VisualChoice label="Icon" value={String(item.config.icon??"STAR")} options={["STAR","HEART","CHECK","PIN"].map(value=>({value,label:value.charAt(0)+value.slice(1).toLowerCase()}))} onChange={icon=>update(item.id,row=>({...row,config:{...row.config,icon}}))}/>}</>}
@@ -29,6 +29,6 @@ export function CustomContentDraftEditor({items,links=[],organizationId,onChange
         <button type="button" className="builder-v3-delete" onClick={()=>{if(window.confirm("Delete this item from the draft? Save Changes applies the deletion."))commit(latest.current.filter(row=>row.id!==item.id))}}><FiTrash2 size={16} aria-hidden="true"/>Delete item</button>
       </div>}
     </SortableList>
-    {chooser}
+    {!showChooser&&chooser}
   </div>;
 }

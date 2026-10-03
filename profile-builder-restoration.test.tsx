@@ -21,7 +21,7 @@ const business={name:"Test",businessType:null,v2:initial,profile:{displayName:"T
 let tree:TestRenderer.ReactTestRenderer;
 const request=vi.fn();
 const txt=(n:TestRenderer.ReactTestInstance):string=>n.children.map(c=>typeof c==="string"?c:txt(c)).join("");
-const click=async(label:string)=>{await act(async()=>{tree.root.findAllByType("button").find(n=>txt(n).includes(label))!.props.onClick()})};
+const click=async(label:string)=>{await act(async()=>{tree.root.findAllByType("button").filter(n=>txt(n).includes(label))[label==="Add content"?tree.root.findAllByType("button").filter(n=>txt(n).includes(label)).length-1:0]!.props.onClick()})};
 beforeEach(()=>{vi.stubGlobal("window",{addEventListener:vi.fn(),removeEventListener:vi.fn(),confirm:()=>true});vi.stubGlobal("document",{addEventListener:vi.fn(),removeEventListener:vi.fn()});vi.stubGlobal("fetch",request);request.mockReset()});
 afterEach(()=>{if(tree)act(()=>tree.unmount());vi.unstubAllGlobals()});
 async function mount(){await act(async()=>{tree=TestRenderer.create(<ToastProvider><BuilderV3 organizationId="org" businessSlug="test" business={business} menuAvailable={false} menu={null}/></ToastProvider>)})}
@@ -74,15 +74,15 @@ it("updates backgrounds and global appearance locally and shows text-appropriate
   await click("CustomCustom profile content");await click("Appearance");
   const appearance=tree.root.findByType(EssentialSectionAppearance);
   await act(async()=>appearance.props.onChange({...appearance.props.section,config:{visual:{text:{align:"CENTER"}}}}));
-  expect(tree.root.findAllByType(EssentialText)).toHaveLength(0);expect(tree.root.findAllByType(VisualChoice).some(n=>n.props.label==="Section surface")).toBe(true);expect(tree.root.findAllByType(VisualChoice).some(n=>n.props.label==="Button style")).toBe(false);
+  expect(tree.root.findAllByType(EssentialText)).toHaveLength(0);expect(tree.root.findAllByType(VisualChoice).some(n=>n.props.label==="Section background style")).toBe(true);expect(tree.root.findAllByType(VisualChoice).some(n=>n.props.label==="Card style")).toBe(false);
 });
 
 it("keeps Header and Footer Content/Appearance reachable without saving",async()=>{
   await mount();await click("Header");await click("Appearance");
-  expect(tree.root.findAllByType(VisualChoice).some(node=>node.props.label==="Header spacing")).toBe(true);
+  expect(tree.root.findAllByType(VisualChoice).some(node=>node.props.label==="Header inside spacing")).toBe(true);
   await click("Content");expect(tree.root.findAllByType("textarea").length).toBeGreaterThan(0);
   await click("Footer");expect(tree.root.findAllByType(Field).some(node=>node.props.label.startsWith("Footer text"))).toBe(true);
-  await click("Appearance");expect(tree.root.findAllByType("summary").some(node=>txt(node)==="Customize footer")).toBe(true);
+  await click("Appearance");expect(tree.root.findAllByType("summary").some(node=>txt(node)==="Advanced Footer settings")).toBe(true);
   expect(request).not.toHaveBeenCalled();
 });
 
@@ -102,7 +102,9 @@ it("stores only changed section style properties and preserves inheritance",()=>
   const onChange=vi.fn();let editor:TestRenderer.ReactTestRenderer;
   const section={...initial.sections[0],kind:"CORE" as const,singletonKey:"LINKS",config:{visual:{}}};
   act(()=>{editor=TestRenderer.create(<EssentialSectionAppearance section={section} global={{version:1,surface:{color:"#ffffff",radius:16},action:{textColor:"#172033",minHeight:60}}} onChange={onChange}/>)});
-  act(()=>editor.root.findAllByType(Field).find(node=>node.props.label==="Button text color")!.props.onChange("#123456"));
+  act(()=>editor.root.findAllByType("input").find(node=>node.props.type==="checkbox")!.props.onChange({target:{checked:true}}));
+  expect(onChange).not.toHaveBeenCalled();
+  act(()=>editor.root.findAllByType(Field).find(node=>node.props.label==="Link text color")!.props.onChange("#123456"));
   expect(onChange.mock.calls[0][0].config.visual).toEqual({action:{textColor:"#123456"}});
   act(()=>editor.unmount());
 });

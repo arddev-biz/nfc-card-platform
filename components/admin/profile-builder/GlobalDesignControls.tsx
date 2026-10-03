@@ -21,13 +21,13 @@ export function GlobalDesignControls({value,theme,onChange,backgroundImageContro
     </DesignControlGroup>
   </div>;
 }
-export function FooterEditor({value,theme,onChange,role,premium=false,showPolicy=true,tab}:Props&{role:string;premium?:boolean;showPolicy?:boolean;tab?:"content"|"appearance"}) {
+export function FooterEditor({value,theme,onChange,role,premium=false,showPolicy=true,tab,appearanceDefault,appearanceSource,appearanceResetUnavailable=false}:Props&{role:string;premium?:boolean;showPolicy?:boolean;tab?:"content"|"appearance";appearanceDefault?:Record<string,unknown>;appearanceSource?:string;appearanceResetUnavailable?:boolean}) {
   const c=value??resolveProfileDesign(undefined,theme),allowed=brandingCapabilities(role,premium).customizeFooter;
   return <fieldset disabled={!allowed} className="space-y-4" aria-label="Footer editor"><legend className="text-lg font-semibold">Footer</legend>
     {showPolicy&&<p className="text-sm">{role==="SUPER_ADMIN"?"Super Admin can configure branding for every business.":"Custom branding requires an eligible subscription."}</p>}
     {tab!=="appearance"&&<><Toggle label={showPolicy?"Hide platform branding":"Hide footer"} value={c.footer?.hidden??false} onChange={hidden=>onChange({...c,footer:{...c.footer,text:c.footer?.text??"",hidden}})}/>
     <Field label="Footer text (blank uses platform name)" value={c.footer?.text??""} onChange={text=>onChange({...c,footer:{...c.footer,hidden:c.footer?.hidden??false,text}})}/>
-    </>}{tab!=="content"&&<FooterVisualControls value={c.footer?.visual??{}} onChange={visual=>onChange({...c,footer:{hidden:c.footer?.hidden??false,text:c.footer?.text??"",visual:footerVisual.parse(visual)}})}/> }
-    <Button type="button" variant="secondary" onClick={()=>onChange({...c,footer:{hidden:false,text:""}})}>{showPolicy?"Restore platform default":"Restore default footer"}</Button>
+    </>}{tab!=="content"&&<FooterVisualControls primary={!showPolicy} value={c.footer?.visual??{}} onChange={visual=>onChange({...c,footer:{hidden:c.footer?.hidden??false,text:c.footer?.text??"",visual:footerVisual.parse(visual)}})}/> }
+    {showPolicy?<Button type="button" variant="secondary" onClick={()=>onChange({...c,footer:{hidden:false,text:""}})}>Restore platform default</Button>:tab==="appearance"?<><Button type="button" variant="secondary" disabled={appearanceResetUnavailable} onClick={()=>onChange({...c,footer:{...c.footer,hidden:c.footer?.hidden??false,text:c.footer?.text??"",visual:footerVisual.parse(appearanceDefault??{decoration:"NONE",layout:{before:0,padding:0},surface:{variant:"TRANSPARENT"}})}})}>Use {appearanceSource??"default"} Footer appearance</Button><p className="builder-v3-note">{appearanceResetUnavailable?"The original theme is unavailable. Your Footer appearance is preserved.":"Resets only Footer appearance. Text and visibility stay unchanged."}</p></>:<Button type="button" variant="secondary" onClick={()=>onChange({...c,footer:{...c.footer,hidden:c.footer?.hidden??false,text:""}})}>Use platform text</Button>}
   </fieldset>;
 }
